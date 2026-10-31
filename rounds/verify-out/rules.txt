@@ -1,0 +1,62 @@
+PASS 虎姑婆打開有人的衣櫃，躲在裡面的人會被抓 — dead=true over=dead
+PASS 裂口女問話時回答「普通」就能脫身 — label=回答「普通」 dead=undefined st=patrol
+PASS 裂口女：不回答就會被追上 — dead=true
+PASS 蹲在草叢裡，裂口女看不見 — tile=g
+PASS 魔神仔看得到草叢裡的人 — True
+PASS 鞭炮：嚇跑魔神仔、引來虎姑婆，寫下荒謬紀錄 — flee/investigate
+PASS 殭屍：屏息就看不見；不屏息看得見 — true/false
+PASS 殭屍跨不過門檻 — {"pass":["d","K"],"p":[false,false,true]}
+PASS 符咒正面拍在殭屍額頭，牠會定住 — sealed
+PASS 煤油著火：擋住怪談、燙退虎姑婆 — flee fires=1 blocked=true
+PASS 麥芽糖是氣味誘餌：虎姑婆和裂口女都會去聞 — eat/eat
+PASS 線香的煙：虎姑婆聞不到煙裡的小孩，殭屍聽不到呼吸 — jiangBefore=true after=false smell=null
+PASS 鞭炮：附近的怪談會被嚇一跳 — stun
+PASS 土地公廟擋住虎姑婆；香火燒完就擋不住 — safe=true after: P=true s=undefined
+PASS 裂口女直接進廟 — True
+PASS 水鬼只抓水裡的人 — ridge=. false/true
+PASS 水鬼把人拖下水，連按方向鍵可掙脫 — grabbed=true dead=undefined
+PASS 魔神仔牽走草叢中的倖存者，最後只剩鞋 — gone=true lured=false st=patrol
+PASS 跟隨者走到貨車旁就上車 — saved=true st=saved
+PASS 撤離要按兩次確認 — 上車離開（還有 6 人沒救） / 確定離開
+PASS 搶先躲進衣櫃寫下懊悔紀錄 — 虎姑婆出現了。|你搶先躲進衣櫃，小美被留在外面。
+PASS 第一次遇見怪談會暫停並翻開怪談錄 — true/true/true
+PASS 結算報紙：死亡 — 夜入山腳村救人外地司機遇害
+PASS 結算報紙：天亮 — 撐到雞啼全村六人無一傷亡 | 本報訊　山腳村昨夜全村停電。一名外地貨車司機於深夜十一點停車村口，隻身入村尋找受困村民。當晚濃霧，霧很濃，手電筒照不遠。凌晨五點，雞啼了。怪談散去，阿伯、小美、小安、阿弟、小胖、阿明撐到了天亮。本次救援無人傷亡。司機天亮前已駕車離開，婉拒受
+PASS 開場約 20 秒只有預兆；第一個怪談 28–32 秒出現、不是水鬼、生在 8 格外 — 4321:mosin@29.5(omen 19.5) spawn={"t":29.5,"type":"mosin","d":21.3} early=0 | 1:jiang@28.3(omen 18.3) spawn={"t":28.3,"type":"jiang","d":20.1} early=0 | 2:mosin
+PASS 每過一個時辰怪談變快，最後一分鐘更急 — 0.8 → 0.92 → 1.18
+PASS 太久沒遇到怪談，最近的那個會往你這邊來 — investigate
+PASS 關上的門：怪談要撞一陣子才進得來 — bash=true tile=d
+PASS 貼了符的門撞不開 — tile=D st=patrol
+PASS 敲鐘會把怪談引過去 — 敲鐘（把怪談引過來） / investigate
+PASS 躲進井裡很安全，但待太久水鬼會從井底抓人 — safe=true drown=true
+PASS 站在路燈下，怪談看得比較遠；打破路燈就暗了 — lit=true dark=false
+PASS 撞到風鈴會發出聲音，把怪談引過來 — ring=0.016666666666666666 m=investigate
+PASS 狗看到人會叫，叫聲會引來怪談；丟糖牠就安靜 — barked=true quiet=true
+PASS 撿到紙條會知道一個人的位置 — 小安
+PASS 紅衣小女孩：三秒不動就沒事 — 你一動也不敢動。紅衣小女孩看了你很久，然後不見了。
+PASS 紅衣小女孩：動了就受罰（燈滅、怪談被引來、帶走同伴） — dark=true m=investigate taken=true
+PASS 夜半送葬：一直用手電筒照它，會被帶進隊伍 — lured=true look=1.10
+PASS 夜半送葬：蹲下低頭就沒事 — lured=false
+PASS 叫名字：回頭就受罰 — dark=true
+PASS 叫名字：按互動回答也算違規 — 
+PASS 叫名字：不回頭、不回答就沒事 — 你沒有回頭。叫你名字的聲音，慢慢遠了。
+PASS 被抓時出現死亡卡，按 R 立刻再來 — shown=true restarted=true
+PASS 子時虎姑婆看到你會先盯著走近（stalk），再撲上來（chase） — seq=stalk>chase>patrol stalk 0.02→chase 1.05 heat=0.8
+PASS 最後一分鐘：還沒救的村民一起喊你、位置被標出來、附近的怪談被引過去 — final=true revealed=6/6 bubbles=6 near=investigate(goal 0.0 tiles from villager, 1s later knock) far=patrol heat=1.18
+PASS 裂口女：離你還遠時不會出現「回答」，走到身邊才倒數 — farPrompt=false timerAfter0.3s=2.20 promptAt=5.0tiles st=ask
+PASS 驚嚇特寫開關：存進 localStorage，關掉時不畫特寫 — closeup 64x64 on=3 off=0 stored=0 label=驚嚇特寫：關 restored=1 before=null
+PASS 打破規則的短撲臉不會結束這一夜 — flash=true over=null dead=undefined errs=0
+PASS 第一個怪談生在你周圍 16–22 格、你看不到的地方，0.8 秒內聽得到，先放過尖叫的村民最多 60 秒 — 4321:mosin d=21.3 los=false cue=0.78 spare=60.0 | 1:jiang d=20.1 los=false cue=0.78 spare=60.0 | 2:mosin d=19.2 los=false cue=0.78 spare=60.0 | 77:mosin d=19.3 
+PASS 被放過的尖叫村民：躲在衣櫃裡，虎姑婆 60 秒內不會開那個衣櫃；過了就會 — spared=true after60=true st=knock
+PASS 兩個規則怪談之間至少隔 35 秒 — starts=1,40.52 ends=5.5,44.12
+PASS 寅時增援：預兆在 272 秒、怪談正好在 280 秒出現 — omen=272.02 spawn=280.02
+PASS 紅衣小女孩看著你時，14 格內的怪談也定住（位置、狀態、計時都不動）；更遠的照常行動 — near moved 0.0px st=investigate timer=20; far timer=16.0 moved 0.0px (search,search,search,search,search) log=false
+PASS 夜半送葬經過時，3 格內的怪談會讓路（逃開），寫下荒謬紀錄 — near=flee far=patrol log=虎姑婆遠遠避開了送葬的隊伍。
+PASS 守規矩的村民在規則怪談出現時提醒你；用種子分配，不是每夜都有 — bubble=不管誰叫你，都別回頭。 piousNights=17/20 tutorial=false
+PASS 殭屍「盯著你」時完全不動（位移 0），撲過來時才又跳 — stalk 2.20s maxMove=0px then chase, moved 87.3px in 1s
+PASS 大人躲衣櫃屏住呼吸：第一次敲門撐過去；同一個衣櫃第二次被抓（整段都按住屏息） — first: dead=false st=patrol log=true suspect=1; second: dead=true
+PASS 小孩躲衣櫃一定會被虎姑婆聞到（就算憋氣） — kid dead=true st=patrol
+PASS 第一個怪談循著最後的聲音過去；你安靜躲好，牠就不會找到你 — 4321:mosin followedNoise=true, found=false dead=false huntOver=true | 77:mosin followedNoise=true, found=false dead=false huntOver=true | 9001:kuchi followedNoi
+PASS 守規矩的村民在一次規則怪談中提醒至少兩句 — 不管誰叫你，都別回頭。 / 別出聲……就快過去了。
+PASS 被抓時撲臉特寫跑完不出錯，接著出現死亡卡 — over=dead after 30ms lunge=true card=true cleared=true errs=0
+pageerrors [] KT.err None

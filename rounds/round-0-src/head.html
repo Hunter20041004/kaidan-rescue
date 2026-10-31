@@ -1,0 +1,291 @@
+<title>怪談救援</title>
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Cactus+Classical+Serif&family=LXGW+WenKai+TC:wght@400;700&display=swap">
+<style>
+/* Layout: a full-bleed night stage. The HUD is made of paper objects pinned to its corners —
+   a burning incense stick for the clock, joss-paper name tags, a cloth pouch of talismans —
+   and menus are printed matter: a lunar almanac, a ghost-lore book, a morning newspaper. */
+:root{
+  --night:#0b0d10;      /* page and stage ground */
+  --soot:#1b1d22;       /* dark paper / panels */
+  --paper:#e7d9b1;      /* joss paper: primary light surface */
+  --paper-deep:#c9b47f; /* aged paper edges */
+  --paper-ink:#2b1f14;  /* ink on paper */
+  --cinnabar:#b5341d;   /* 硃砂: seals, danger */
+  --gold:#c9993c;       /* gilt, incense ember */
+  --jade:#6e9b6b;       /* rescued / safe */
+  --mist:#8f8a78;       /* secondary text on dark */
+  --f-brush:"LXGW WenKai TC","Kaiti TC","BiauKai","STKaiti",serif;
+  --f-print:"Cactus Classical Serif","Noto Serif TC","Songti TC","PMingLiU",serif;
+  --grain:url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='160' height='160'><filter id='n'><feTurbulence type='fractalNoise' baseFrequency='.9' numOctaves='3' stitchTiles='stitch'/><feColorMatrix values='0 0 0 0 .35  0 0 0 0 .25  0 0 0 0 .12  0 0 0 .55 0'/></filter><rect width='160' height='160' filter='url(%23n)'/></svg>");
+  color-scheme:dark;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{margin:0;background:var(--night);color:var(--paper);font-family:var(--f-print);overflow:hidden;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));box-sizing:border-box;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#app{height:100%;display:flex;align-items:center;justify-content:center;padding-block:10px;box-sizing:border-box}
+#stage{position:relative;width:100%;height:100%;max-width:1440px;overflow:hidden;background:#050608;border-radius:3px;box-shadow:0 0 0 1px #000,0 40px 120px #000}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,.slot:focus-visible{outline:2px solid var(--gold);outline-offset:3px}
+
+/* ---------- paper primitives ---------- */
+.paper{background:var(--paper) var(--grain);color:var(--paper-ink);box-shadow:0 1px 0 #fff6 inset,0 18px 40px #000a}
+.seal{font-family:var(--f-brush);font-weight:700;color:#f3e6c3;background:var(--cinnabar);display:inline-grid;place-items:center;border-radius:4px;
+  box-shadow:inset 0 0 0 2px var(--cinnabar),inset 0 0 0 3.5px #f3e6c3aa;line-height:1}
+kbd{font:700 12px/1 var(--f-print);display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;box-sizing:border-box;
+  background:var(--paper);color:var(--paper-ink);border-radius:3px;box-shadow:0 2px 0 var(--paper-deep)}
+
+/* ---------- HUD ---------- */
+#hud{position:absolute;inset:0;pointer-events:none}
+#hud>*{pointer-events:auto}
+#clock{position:absolute;top:14px;left:16px;display:flex;gap:10px;align-items:flex-start;pointer-events:none}
+.incense{position:relative;width:10px;height:92px}
+.incense .stick{position:absolute;left:4px;bottom:0;width:2.5px;background:linear-gradient(#7a2a16,#5a1d0f);border-radius:1px;height:80px}
+.incense .ember{position:absolute;left:2px;width:6.5px;height:6.5px;border-radius:50%;background:#ffb347;box-shadow:0 0 8px 3px #ff6a1f99,0 0 18px 6px #ff4a0f33;animation:ember 1.6s ease-in-out infinite}
+.incense .base{position:absolute;left:-6px;bottom:-6px;width:22px;height:8px;border-radius:2px;background:linear-gradient(#a57a2c,#6b4a17)}
+@keyframes ember{50%{opacity:.75;transform:scale(.85)}}
+.shichen{display:flex;flex-direction:column;gap:6px}
+.shichen b{font-family:var(--f-brush);font-weight:700;font-size:30px;writing-mode:vertical-rl;letter-spacing:.08em;color:var(--paper);text-shadow:0 2px 10px #000}
+.shichen span{font-size:12px;color:var(--mist);letter-spacing:.06em;font-variant-numeric:tabular-nums;white-space:nowrap;text-shadow:0 1px 4px #000}
+#tags{position:absolute;top:12px;right:62px;display:flex;gap:6px;pointer-events:none}
+.tag{position:relative;width:26px;height:86px;display:grid;justify-items:center;align-content:start;padding-top:6px;box-sizing:border-box;
+  font-family:var(--f-brush);font-size:15px;font-weight:700;writing-mode:vertical-rl;letter-spacing:.12em;clip-path:polygon(0 0,100% 0,100% 92%,50% 100%,0 92%);
+  transform:rotate(var(--tilt,0deg));transform-origin:50% 0;transition:filter .3s}
+.tag.unk{background:var(--soot);color:var(--mist);box-shadow:none}
+.tag i{position:absolute;left:50%;bottom:8px;transform:translateX(-50%) rotate(-8deg);writing-mode:horizontal-tb;font-style:normal;font-size:12px;width:20px;height:20px;border-radius:50%;
+  display:grid;place-items:center;color:#f3e6c3;letter-spacing:0}
+.tag.follow i{background:var(--gold)}.tag.saved i{background:var(--jade)}.tag.dead i{background:var(--cinnabar)}.tag.gone i{background:#5b5a52}
+.tag.dead,.tag.gone{filter:grayscale(.8) brightness(.7)}
+#pausebtn{position:absolute;top:14px;right:16px;width:34px;height:34px;font-size:18px}
+#tray{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:flex;gap:8px;align-items:flex-end}
+.slot{position:relative;width:54px;height:54px;display:grid;place-items:center;border-radius:4px;background:#1b1d22d9;box-shadow:inset 0 0 0 1px #ffffff14;cursor:pointer;transition:transform .15s}
+.slot img{width:44px;height:44px;display:block;opacity:.32;filter:grayscale(1);image-rendering:pixelated}
+.slot.has img{opacity:1;filter:none}
+.slot b{position:absolute;right:4px;bottom:2px;font:700 12px/1 var(--f-print);color:var(--paper);text-shadow:0 1px 3px #000}
+.slot u{position:absolute;left:5px;top:3px;font:11px/1 var(--f-print);text-decoration:none;color:var(--mist)}
+.slot.sel{background:var(--paper) var(--grain);transform:translateY(-6px);box-shadow:0 10px 20px #0009}
+.slot.sel b{color:var(--paper-ink);text-shadow:none}.slot.sel u{color:#7a6a4a}
+.slot.sel::after{content:"";position:absolute;left:14px;right:14px;bottom:-7px;height:2px;background:var(--cinnabar);border-radius:2px}
+#itemtip{position:absolute;left:50%;bottom:84px;transform:translateX(-50%);text-align:center;pointer-events:none;transition:opacity .4s;width:min(620px,84%)}
+#itemtip b{font-family:var(--f-brush);font-size:20px;color:var(--paper);text-shadow:0 2px 8px #000}
+#itemtip p{margin:2px 0 0;font-size:13px;color:#d9ccaa;text-shadow:0 1px 6px #000;line-height:1.5}
+#sub{position:absolute;left:50%;bottom:150px;transform:translateX(-50%);width:min(720px,88%);display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none}
+#sub div{font-family:var(--f-brush);font-size:clamp(17px,2.2vw,22px);line-height:1.35;text-align:center;text-wrap:balance;color:var(--paper);text-shadow:0 2px 10px #000,0 0 2px #000;transition:opacity .6s}
+#sub div.death{color:#ff7a5e}#sub div.regret{color:#f0b6a2}#sub div.clutch{color:#ffd27a}#sub div.save{color:#a9d69a}#sub div.absurd{color:#d8c4f2}#sub div.omen{color:#b9c3d6;font-style:italic}
+#tut{position:absolute;top:14px;left:50%;transform:translateX(-50%) rotate(-.6deg);width:min(460px,64%);padding:12px 16px 14px;display:flex;flex-direction:column;gap:6px;pointer-events:none}
+#tut .n{font-size:11px;letter-spacing:.3em;color:#7a6a4a}
+#tut h3{margin:0;font-family:var(--f-brush);font-size:22px;color:var(--cinnabar)}
+#tut p{margin:0;font-size:14px;line-height:1.6}
+#tut p kbd{background:var(--paper-ink);color:var(--paper);box-shadow:0 2px 0 #000}
+
+#goal{position:absolute;top:18px;left:50%;transform:translateX(-50%);font-family:var(--f-brush);font-size:17px;color:#e2d4ad;text-shadow:0 2px 10px #000,0 0 2px #000;pointer-events:none;white-space:nowrap;transition:opacity .4s}
+#goal em{font-style:normal;color:var(--gold)}
+.btn{transition:transform .14s cubic-bezier(.23,1,.32,1),filter .14s}
+.btn:active,.slot:active,#touch button:active{transform:scale(.96)}
+@media (hover:hover) and (pointer:fine){.btn:hover{filter:brightness(1.12)}.slot:hover:not(.sel){box-shadow:inset 0 0 0 1px #e7d9b166}}
+.overlay:not([hidden]) .book,.overlay:not([hidden]) .news{animation:sheet .26s cubic-bezier(.23,1,.32,1) both}
+@keyframes sheet{from{opacity:0;transform:translateY(10px) rotate(-.4deg)}}
+#sub div{animation:subin .3s cubic-bezier(.23,1,.32,1) both}
+@keyframes subin{from{opacity:0;transform:translateY(6px)}}
+::selection{background:var(--cinnabar);color:#f3e6c3}
+.book::-webkit-scrollbar,.news::-webkit-scrollbar{width:8px}.book::-webkit-scrollbar-thumb,.news::-webkit-scrollbar-thumb{background:#2b1f1455;border-radius:4px}
+
+/* ---------- touch ---------- */
+#touch{position:absolute;right:max(12px,env(safe-area-inset-right,0px));bottom:84px;display:grid;grid-template-columns:repeat(2,64px);gap:10px;pointer-events:none}
+#touch button{pointer-events:auto;width:64px;height:64px;border-radius:50%;background:#1b1d22cc;box-shadow:inset 0 0 0 1.5px #e7d9b155;color:var(--paper);font-family:var(--f-brush);font-size:18px;font-weight:700}
+#touch button:active,#touch button.on{background:var(--paper);color:var(--paper-ink)}
+
+/* ---------- overlays ---------- */
+.overlay{position:absolute;inset:0;display:flex;align-items:safe center;justify-content:center;padding:24px;box-sizing:border-box;overflow:auto;line-height:1.55}
+.dim{background:radial-gradient(ellipse at center,#0b0d10aa,#0b0d10f2)}
+#title{justify-content:space-between;align-items:stretch;background:linear-gradient(90deg,#0b0d10f0 0%,#0b0d10a0 38%,#0b0d1000 60%,#0b0d1066 100%);padding:clamp(20px,4vw,48px)}
+#title .left{display:flex;flex-direction:column;justify-content:flex-end;gap:20px;max-width:440px;min-width:0}
+#title .lead{margin:0;font-size:16px;color:#d9ccaa;line-height:1.8;text-shadow:0 2px 8px #000}
+.almanac{display:grid;grid-template-columns:auto 1fr;gap:4px 12px;padding:12px 14px;font-size:14px;align-items:baseline;max-width:340px;transform:rotate(-.8deg)}
+.almanac .h{grid-column:1/-1;display:flex;justify-content:space-between;font-size:11px;letter-spacing:.2em;color:#7a6a4a;border-bottom:1px solid #2b1f1433;padding-bottom:6px;margin-bottom:4px}
+.almanac b{font-family:var(--f-brush);font-size:26px;color:var(--cinnabar);grid-column:1/-1;line-height:1.1}
+.almanac .yi{font-family:var(--f-brush);font-size:18px;color:var(--jade);font-weight:700}.almanac .ji{font-family:var(--f-brush);font-size:18px;color:var(--cinnabar);font-weight:700}
+.menu{display:flex;flex-direction:column;gap:12px;align-items:flex-start}
+.menu button{font-family:var(--f-brush);font-size:22px;color:var(--paper);display:flex;gap:12px;align-items:center;text-shadow:0 2px 8px #000;padding:2px 0}
+.menu button .seal{width:40px;height:40px;font-size:22px}
+.menu button:hover .seal,.menu button:focus-visible .seal{transform:rotate(-8deg) scale(1.06)}
+.menu button .seal{transition:transform .15s}
+.menu button.ghost .seal{background:transparent;color:var(--paper);box-shadow:inset 0 0 0 1.5px var(--paper)}
+.menu button>span:last-child{text-align:left;line-height:1.25}
+.menu small{font-family:var(--f-print);font-size:12px;color:var(--mist)}
+#title .right{display:flex;flex-direction:column;align-items:center;gap:18px;padding-top:4px}
+.vtitle{writing-mode:vertical-rl;font-family:var(--f-brush);font-weight:700;font-size:clamp(64px,11vh,128px);line-height:1;letter-spacing:.06em;color:var(--paper);
+  text-shadow:0 4px 30px #000,0 0 2px #000;margin:0}
+.vsub{writing-mode:vertical-rl;font-size:14px;letter-spacing:.4em;color:var(--mist)}
+#title .right .seal{width:56px;height:56px;font-size:32px;transform:rotate(-6deg)}
+#best{font-size:12px;color:var(--mist)}
+
+.book{width:min(860px,100%);padding:clamp(18px,3vw,32px);display:flex;flex-direction:column;gap:16px;max-height:100%;overflow:auto;box-sizing:border-box}
+.book .head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;border-bottom:2px solid var(--paper-ink);padding-bottom:8px}
+.book h2{margin:0;font-family:var(--f-brush);font-size:clamp(28px,4vw,40px);line-height:1.1}
+.book .head span{font-size:12px;letter-spacing:.2em;color:#7a6a4a}
+.entries{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.entry{display:grid;grid-template-columns:84px 1fr;gap:10px;align-items:start;padding-bottom:12px;border-bottom:1px dashed #2b1f1444;min-width:0}
+.entry canvas{width:84px;height:84px;background:#1b1d22;border-radius:3px}
+.entry h4{margin:0;font-family:var(--f-brush);font-size:22px;color:var(--cinnabar);line-height:1.1}
+.entry small{display:block;font-size:11px;color:#7a6a4a;letter-spacing:.1em;margin:2px 0 4px}
+.entry ul{margin:0;padding-left:16px;font-size:13px;line-height:1.5}
+.entry.unk h4{color:#7a6a4a}
+.keys{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px 18px;font-size:13px;margin:0}
+.keys div{display:flex;gap:8px;align-items:center}
+.keys kbd{background:var(--paper-ink);color:var(--paper);box-shadow:0 2px 0 #000}
+.row{display:flex;gap:14px;flex-wrap:wrap;align-items:center}
+.btn{font-family:var(--f-brush);font-size:19px;font-weight:700;padding:8px 18px;border-radius:3px;background:var(--paper-ink);color:var(--paper)}
+.btn.red{background:var(--cinnabar);color:#f3e6c3}
+.btn.line{background:transparent;color:var(--paper-ink);box-shadow:inset 0 0 0 1.5px var(--paper-ink)}
+
+#meet .book{width:min(560px,100%)}
+#meet .portrait{display:grid;grid-template-columns:minmax(0,190px) 1fr;gap:18px;align-items:center}
+#meet canvas{width:100%;aspect-ratio:1;max-width:100%;background:#15171b;border-radius:3px}
+#meet h2{font-size:clamp(36px,6vw,54px);color:var(--cinnabar)}
+#meet .blurb{margin:0;font-size:15px;line-height:1.7}
+#meet ul{margin:0;padding-left:18px;font-size:14px;line-height:1.7}
+
+/* death card: white funeral paper with a black border */
+#death{background:radial-gradient(ellipse at center,#1a0505cc,#050101f5)}
+.dcard{width:min(640px,100%);display:grid;grid-template-columns:minmax(0,240px) 1fr;gap:22px;align-items:center;padding:clamp(18px,3vw,30px);box-sizing:border-box;
+  background:#e9e5d8 var(--grain);color:#1a1612;box-shadow:inset 0 0 0 6px #e9e5d8,inset 0 0 0 9px #1a1612,0 30px 80px #000;animation:sheet .26s cubic-bezier(.23,1,.32,1) both}
+.dcard canvas{width:100%;aspect-ratio:1;image-rendering:pixelated;background:#0a0a0c}
+.dcard .dk{margin:0;font-size:12px;letter-spacing:.14em;color:#5a5248}
+.dcard h2{margin:6px 0 10px;font-family:var(--f-brush);font-size:clamp(28px,4.4vw,40px);line-height:1.15;color:var(--cinnabar);text-wrap:balance}
+.dcard p#deathtip{margin:0 0 16px;font-size:15px;line-height:1.7}
+.dcard .btn.line{color:#1a1612;box-shadow:inset 0 0 0 1.5px #1a1612}
+#meetrules b{color:var(--cinnabar);font-weight:700}
+#meet canvas,.entry canvas{image-rendering:pixelated}
+
+/* newspaper */
+.news{width:min(820px,100%);padding:clamp(16px,3vw,30px);box-sizing:border-box;display:flex;flex-direction:column;gap:12px;max-height:100%;overflow:auto;transform:rotate(-.4deg)}
+.masthead{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:3px double var(--paper-ink);padding-bottom:6px;gap:10px;flex-wrap:wrap}
+.masthead b{font-family:var(--f-brush);font-size:clamp(30px,5vw,46px);line-height:1;letter-spacing:.1em}
+.masthead span{font-size:12px;color:#5b4a32;letter-spacing:.06em}
+.newsbody{display:grid;grid-template-columns:auto minmax(0,1fr);gap:18px}
+.headline{writing-mode:vertical-rl;font-family:var(--f-brush);font-weight:700;font-size:clamp(28px,4.2vw,42px);line-height:1.15;margin:0;max-height:440px;color:var(--paper-ink)}
+.headline.bad{color:var(--cinnabar)}
+.article{column-count:2;column-gap:20px;column-rule:1px solid #2b1f1433;font-size:14px;line-height:1.75;text-align:justify;min-width:0}
+.article p{margin:0 0 8px;break-inside:avoid-column}
+.article p:first-child::first-letter{font-family:var(--f-brush);font-size:2.2em;float:left;line-height:1;margin:2px 6px 0 0;color:var(--cinnabar)}
+.factbox{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1.5px solid var(--paper-ink)}
+.factbox div{padding:6px 10px;border-right:1px solid #2b1f1444;display:flex;flex-direction:column;gap:2px}
+.factbox div:last-child{border-right:0}
+.factbox span{font-size:11px;color:#5b4a32;letter-spacing:.12em}
+.factbox b{font-family:var(--f-brush);font-size:24px;line-height:1.1;font-variant-numeric:tabular-nums}
+.news .row{justify-content:flex-start}
+#sharemsg{font-size:13px;color:#5b4a32}
+
+@media (max-width:720px){
+  #title{flex-direction:column-reverse;justify-content:flex-end;gap:16px;background:linear-gradient(0deg,#0b0d10f5 0%,#0b0d10c0 55%,#0b0d1033 100%)}
+  #title .right{flex-direction:row;align-items:flex-start;justify-content:flex-end}
+  .vtitle{font-size:clamp(44px,13vw,56px)}
+  #title .lead{font-size:14px;line-height:1.7;text-wrap:pretty}#title .lead br{display:none}
+  .almanac{padding:10px 12px;font-size:13px}.almanac b{font-size:22px}
+  .menu{gap:8px}.menu button{font-size:19px}.menu button .seal{width:34px;height:34px;font-size:19px}
+  #touch{grid-template-columns:repeat(2,54px);gap:8px;bottom:78px}#touch button{width:54px;height:54px;font-size:16px}
+  #sub{left:16px;transform:none;width:calc(100% - 160px);bottom:150px;align-items:flex-start}#sub div{text-align:left;font-size:15px}
+  #itemtip{left:16px;transform:none;text-align:left;width:calc(100% - 160px);bottom:70px}#itemtip p{display:none}#itemtip b{font-size:16px}
+  #goal{top:112px;left:16px;transform:none;font-size:14px;white-space:normal;max-width:52%}
+  #tags{right:56px;gap:4px}.tag{width:22px;height:72px;font-size:13px}
+  .slot{width:46px;height:46px}.slot img{width:36px;height:36px}
+  #itemtip{bottom:72px}#sub{bottom:118px}
+  .article{column-count:1}.factbox{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .newsbody{grid-template-columns:minmax(0,1fr)}.headline{writing-mode:horizontal-tb;max-height:none}
+  #meet .portrait{grid-template-columns:minmax(0,1fr)}#meet canvas{max-width:200px}
+  .dcard{grid-template-columns:minmax(0,1fr)}.dcard canvas{max-width:180px}
+  #tut{width:min(420px,calc(100% - 140px));left:auto;right:auto;transform:none;margin-left:110px;top:110px;padding:10px 12px}
+  #tut h3{font-size:18px}#tut p{font-size:13px}
+}
+@media (prefers-reduced-motion:reduce){.overlay .book,.overlay .news,#sub div{animation-name:fadeonly}.incense .ember{animation:none}.slot,.menu button .seal{transition:none}}
+@keyframes fadeonly{from{opacity:0}}
+</style>
+
+<div id="app">
+  <div id="stage">
+    <canvas id="cv" aria-label="遊戲畫面"></canvas>
+    <div id="hud" hidden>
+      <div id="clock"><div class="incense"><i class="base"></i><i class="stick" id="stick"></i><i class="ember" id="ember"></i></div>
+        <div class="shichen"><b id="shichen">子時</b><span id="dawn">雞啼前 6:00</span></div></div>
+      <div id="goal"></div>
+      <div id="tags"></div>
+      <button id="pausebtn" class="seal" title="暫停（Esc）" aria-label="暫停">停</button>
+      <div id="sub"></div>
+      <div id="itemtip"><b id="itname"></b><p id="itdesc"></p></div>
+      <div id="tray"></div>
+      <div id="tut" class="paper" hidden><div class="n" id="tutn"></div><h3 id="tuth"></h3><p id="tutp"></p></div>
+    </div>
+    <div id="touch" hidden>
+      <button id="t-breath">屏息</button><button id="t-act">互動</button>
+      <button id="t-crouch">蹲</button><button id="t-item">道具</button>
+      <button id="t-run">跑</button><button id="t-follow">喊人</button>
+    </div>
+
+    <div class="overlay" id="title">
+      <div class="left">
+        <p class="lead">山腳村停電了。天亮前，還有人困在村裡。<br>帶他們上村口的貨車，或者，只帶你自己。</p>
+        <div class="almanac paper" id="almanac"></div>
+        <div class="menu">
+          <button id="m-start"><span class="seal">入</span><span>入夜<br><small id="m-start-sub">開始新的一夜</small></span></button>
+          <button id="m-tut" class="ghost"><span class="seal">教</span><span>新手教學<br><small>五分鐘學會怎麼活下來</small></span></button>
+          <button id="m-codex" class="ghost"><span class="seal">錄</span><span>怪談錄<br><small id="m-codex-sub">遇過的怪談與對付方法</small></span></button>
+          <span id="best"></span>
+        </div>
+      </div>
+      <div class="right">
+        <h1 class="vtitle">怪談救援</h1>
+        <span class="seal">救</span>
+        <span class="vsub">一夜　山腳村</span>
+      </div>
+    </div>
+
+    <div class="overlay dim" id="codex" hidden>
+      <div class="book paper">
+        <div class="head"><h2>怪談錄</h2><span id="codexcount"></span></div>
+        <div class="entries" id="entries"></div>
+        <div class="row"><button class="btn" id="codexclose">闔上（Esc）</button></div>
+      </div>
+    </div>
+
+    <div class="overlay dim" id="meet" hidden>
+      <div class="book paper">
+        <div class="head"><span id="meeteyebrow">怪談錄・新的一頁</span><span id="meetorigin"></span></div>
+        <div class="portrait"><canvas id="meetcv" width="380" height="380"></canvas>
+          <div><h2 id="meetname"></h2><p class="blurb" id="meetblurb"></p></div></div>
+        <ul id="meetrules"></ul>
+        <div class="row"><button class="btn red" id="meetok">記住了（Enter）</button></div>
+      </div>
+    </div>
+
+    <div class="overlay dim" id="pause" hidden>
+      <div class="book paper">
+        <div class="head"><h2>夜還沒結束</h2><span id="pauseinfo"></span></div>
+        <div class="entries" id="pentries"></div>
+        <div class="keys" id="pkeys"></div>
+        <div class="row"><button class="btn red" id="resume">繼續（Esc）</button><button class="btn line" id="restart">重玩這一夜</button><button class="btn line" id="totitle">回到標題</button><button class="btn line" id="mute">聲音：開（M）</button></div>
+      </div>
+    </div>
+
+    <div class="overlay" id="death" hidden>
+      <div class="dcard"><canvas id="deathcv" width="320" height="320"></canvas>
+        <div><p class="dk" id="deathwho"></p><h2 id="deathline"></h2><p id="deathtip"></p>
+          <div class="row"><button class="btn red" id="dretry">立刻再來（R）</button><button class="btn line" id="dnews">看今晚的報紙（Enter）</button></div></div></div>
+    </div>
+
+    <div class="overlay dim" id="end" hidden>
+      <div class="news paper">
+        <div class="masthead"><b>山腳日報</b><span id="newsdate"></span></div>
+        <div class="newsbody"><h2 class="headline" id="headline"></h2><div class="article" id="article"></div></div>
+        <div class="factbox" id="facts"></div>
+        <div class="row"><button class="btn red" id="again">再入一夜（R）</button><button class="btn line" id="replay">重玩同一夜</button><button class="btn line" id="share">複製報導</button><button class="btn line" id="endtitle">標題</button><span id="sharemsg"></span></div>
+      </div>
+    </div>
+  </div>
+</div>

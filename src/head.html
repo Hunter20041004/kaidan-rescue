@@ -1,0 +1,443 @@
+<meta charset="utf-8">
+<title>怪談救援</title>
+<meta name="description" content="停電的山腳村，七個晚上。開著送月曆的貨車進村，在雞啼前把困住的人帶出來。台灣民俗怪談像素恐怖遊戲。">
+<meta property="og:title" content="怪談救援：七夜山腳村"><meta property="og:description" content="停電的山腳村，七個晚上。天亮前，把人帶上車。">
+<link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%2307090a'/%3E%3Crect x='5' y='3' width='6' height='10' rx='1' fill='%23ffb347'/%3E%3Crect x='7' y='1' width='2' height='2' fill='%233a3733'/%3E%3C/svg%3E">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Noto+Serif+TC:wght@500;900&family=Noto+Sans+TC:wght@400;500;700&family=Iansui&display=swap">
+<style>
+/* A 1990s farming village after dark, under a fluorescent tube: the night card is a page of the 農會 tear-off calendar,
+   the villagers are a row of 光明燈, death is a black-framed obituary, dawn is three 籤詩 slips in grille-shadowed
+   morning light, the newspaper is grey newsprint. See DESIGN.md. */
+:root{
+  --night:#07090a;       /* stage ground */
+  --glass:#111517;       /* HUD glass and slots */
+  --fluo:#dcefea;        /* fluorescent white: text on dark */
+  --fluo-2:#9fb3ae;      /* secondary text on dark (≥4.5:1 on night) */
+  --paper:#f4f2ec;       /* calendar, obituary, slips */
+  --news:#e3e0d6;        /* newsprint */
+  --ink:#111111;
+  --ink-2:#4a4844;       /* secondary ink on paper */
+  --red:#d7261e;         /* calendar red: dates, 忌, danger only */
+  --iron:#2f5a4c;        /* 鐵窗 green: 宜, safe */
+  --terrazzo:#8d8a83;
+  --amber:#ffb347;       /* lamp and ember light */
+  --danger:#ff8a7a;      /* danger text on dark */
+  --f-head:"Noto Serif TC","Songti TC","PMingLiU",serif;
+  --f-ui:"Noto Sans TC","PingFang TC","Microsoft JhengHei",sans-serif;
+  --f-hand:"Iansui","Noto Sans TC",sans-serif;
+  --lift:0 24px 60px #000c;
+  --ease:cubic-bezier(.16,1,.3,1);
+  color-scheme:dark;
+}
+html,body{height:100%}
+[hidden]{display:none!important}
+body{margin:0;background:var(--night);color:var(--fluo);font-family:var(--f-ui);overflow:hidden;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px));box-sizing:border-box;
+  -webkit-user-select:none;user-select:none;-webkit-tap-highlight-color:transparent}
+#app{height:100%;display:flex;align-items:center;justify-content:center;padding-block:10px;box-sizing:border-box}
+#stage{position:relative;width:100%;height:100%;max-width:1440px;overflow:hidden;background:#040506;box-shadow:0 0 0 1px #000,0 40px 120px #000}
+#cv{position:absolute;inset:0;width:100%;height:100%;display:block;touch-action:none;cursor:crosshair}
+button{font:inherit;color:inherit;background:none;border:0;padding:0;cursor:pointer}
+button:focus-visible,.slot:focus-visible{outline:2px solid var(--fluo);outline-offset:3px}
+::selection{background:var(--red);color:var(--paper)}
+kbd{font:500 11px/1 var(--f-ui);display:inline-grid;place-items:center;min-width:20px;height:20px;padding:0 5px;box-sizing:border-box;
+  background:#1b2023;color:var(--fluo);border-radius:3px;box-shadow:inset 0 0 0 1px #3a4246,0 1px 0 #000}
+
+/* ---------- HUD: dimmer than the flashlight pool ---------- */
+#hud{position:absolute;inset:0;pointer-events:none}
+#hud>*{pointer-events:auto}
+#clock{position:absolute;top:14px;left:16px;display:flex;gap:10px;align-items:flex-start;pointer-events:none}
+.incense{position:relative;width:10px;height:92px}
+.incense .stick{position:absolute;left:4px;bottom:0;width:2.5px;background:linear-gradient(#7a2a16,#5a1d0f);border-radius:1px;height:80px}
+.incense .ember{position:absolute;left:2px;width:6.5px;height:6.5px;border-radius:50%;background:var(--amber);box-shadow:0 1px 8px 2px #ff6a1f88;animation:ember 1.6s ease-in-out infinite}
+.incense .base{position:absolute;left:-6px;bottom:-6px;width:22px;height:8px;border-radius:2px;background:linear-gradient(#5c5852,#3a3733)}
+@keyframes ember{50%{opacity:.75;transform:scale(.85)}}
+.shichen{display:flex;flex-direction:column;gap:6px}
+.shichen b{font:900 28px/1 var(--f-head);writing-mode:vertical-rl;letter-spacing:.1em;color:var(--fluo);opacity:.86;text-shadow:0 2px 10px #000}
+.shichen span{font:500 12px/1.3 var(--f-ui);color:var(--fluo-2);letter-spacing:.04em;font-variant-numeric:tabular-nums;white-space:nowrap;text-shadow:0 1px 3px #000,0 0 6px #000}
+/* the villagers as a row of 光明燈: lit while alive, brighter with you, out once lost */
+#tags{position:absolute;top:12px;right:72px;display:flex;gap:5px;pointer-events:none}
+.tag{position:relative;width:26px;height:70px;display:grid;justify-items:center;align-content:start;padding-top:7px;box-sizing:border-box;border-radius:3px 3px 2px 2px;
+  font:700 13px/1 var(--f-ui);writing-mode:vertical-rl;letter-spacing:.14em;background:linear-gradient(#2a1d14,#1a120d);color:#c9a985;box-shadow:inset 0 0 0 1px #4a3626;transition:background .5s,color .5s,box-shadow .5s}
+.tag::before{content:"";position:absolute;left:50%;top:-5px;width:8px;height:5px;transform:translateX(-50%);background:#3a3733;border-radius:2px 2px 0 0}
+.tag.unk{background:var(--glass);color:#c3d2ce;box-shadow:inset 0 0 0 1px #3a4246}
+.tag.paper{background:linear-gradient(#ffcf7a,#e9892f);color:#3a1d06;box-shadow:inset 0 0 0 1px #ffd99a,0 2px 14px #ff9a3a44}
+.tag.follow{background:linear-gradient(#fff1c8,#ffc46a);box-shadow:inset 0 0 0 1px #fff4d8,0 2px 18px #ffc46a77}
+.tag.saved{background:linear-gradient(#e8f4ef,#bcd9cf);color:#18352c;box-shadow:inset 0 0 0 1px #f4fffb}
+.tag.dead,.tag.gone{background:#0c0d0e;color:#6f6c66;box-shadow:inset 0 0 0 1px #2a2c2e}
+.tag i{position:absolute;left:50%;bottom:5px;transform:translateX(-50%);writing-mode:horizontal-tb;font-style:normal;font:700 10px/1 var(--f-ui);letter-spacing:0;color:inherit;opacity:.85}
+#pausebtn{position:absolute;top:10px;right:12px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:4px;background:#11151799;box-shadow:inset 0 0 0 1px #3a4246}
+#pausebtn i{display:block;width:4px;height:16px;background:var(--fluo);border-radius:1px}
+#tray{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:flex;gap:8px;align-items:flex-end}
+.slot{position:relative;width:54px;height:54px;display:grid;place-items:center;border-radius:4px;background:#111517cc;box-shadow:inset 0 0 0 1px #2c3336;cursor:pointer;transition:transform .2s var(--ease),box-shadow .2s}
+.slot img{width:44px;height:44px;display:block;opacity:.28;filter:grayscale(1);image-rendering:pixelated}
+.slot.has img{opacity:.92;filter:none}
+.slot b{position:absolute;right:4px;bottom:3px;font:700 12px/1 var(--f-ui);color:var(--fluo);text-shadow:0 1px 3px #000}
+.slot u{position:absolute;left:5px;top:4px;font:500 10px/1 var(--f-ui);text-decoration:none;color:var(--fluo-2)}
+.slot.sel{transform:translateY(-4px);box-shadow:inset 0 0 0 1.5px var(--amber),0 8px 20px #ff8a2a33}
+.slot.sel img{opacity:1}.slot.sel u{color:var(--amber)}
+#itemtip{position:absolute;left:50%;bottom:84px;transform:translateX(-50%);text-align:center;pointer-events:none;transition:opacity .4s;width:min(560px,84%)}
+#itemtip b{font:700 17px/1.3 var(--f-ui);color:var(--fluo);text-shadow:0 2px 8px #000}
+#itemtip p{margin:3px 0 0;font:400 13px/1.55 var(--f-ui);color:var(--fluo-2);text-shadow:0 1px 6px #000,0 0 3px #000}
+/* subtitles: white for the world, warm red for danger and loss */
+#sub{position:absolute;left:50%;bottom:156px;transform:translateX(-50%);width:min(680px,86%);display:flex;flex-direction:column;align-items:center;gap:4px;pointer-events:none}
+#sub div{font:500 clamp(15px,1.7vw,19px)/1.45 var(--f-ui);text-align:center;text-wrap:balance;color:var(--fluo);text-shadow:0 1px 3px #000,0 0 12px #000,0 0 2px #000;transition:opacity .6s;animation:subin .35s var(--ease) both}
+#sub div.death,#sub div.regret{color:var(--danger)}
+@keyframes subin{from{opacity:0;transform:translateY(5px)}}
+#goal{position:absolute;top:18px;left:50%;transform:translateX(-50%);font:500 15px/1.3 var(--f-ui);color:var(--fluo);opacity:.9;text-shadow:0 1px 3px #000,0 0 10px #000;pointer-events:none;white-space:nowrap;transition:opacity .4s}
+#goal em{font-style:normal;font-weight:700;color:var(--amber)}
+#goal kbd{margin:0 2px}
+#tut{position:absolute;top:64px;left:50%;transform:translateX(-50%);width:min(460px,64%);padding:14px 16px 16px;display:flex;flex-direction:column;gap:6px;pointer-events:none;background:var(--paper);color:var(--ink);box-shadow:var(--lift)}
+#tut .n{font:500 11px/1 var(--f-ui);letter-spacing:.2em;color:var(--ink-2)}
+#tut h3{margin:0;font:900 20px/1.25 var(--f-head)}
+#tut p{margin:0;font:400 14px/1.65 var(--f-ui)}
+#stage.lunge #hud,#stage.lunge #touch{visibility:hidden}   /* the lunge owns the whole screen */
+
+/* ---------- touch ---------- */
+#touch{position:absolute;right:max(12px,env(safe-area-inset-right,0px));bottom:84px;display:grid;grid-template-columns:repeat(2,64px);gap:10px;pointer-events:none}
+#touch button{pointer-events:auto;width:64px;height:64px;border-radius:50%;background:#111517cc;box-shadow:inset 0 0 0 1px #3a4246;color:var(--fluo);font:700 16px/1 var(--f-ui)}
+#touch button:active,#touch button.on{background:var(--fluo);color:var(--ink)}
+
+/* ---------- shared ---------- */
+.overlay{position:absolute;inset:0;display:flex;align-items:safe center;justify-content:center;padding:24px;box-sizing:border-box;overflow:auto;line-height:1.6}
+.dim{background:#07090ae6}
+.btn{font:700 16px/1 var(--f-ui);padding:13px 20px;border-radius:3px;background:var(--ink);color:var(--paper);transition:transform .15s var(--ease),background .15s,box-shadow .15s}
+.btn.red{background:var(--ink);color:var(--paper)}
+.btn.line{background:transparent;color:var(--ink);box-shadow:inset 0 0 0 1.5px var(--ink)}
+.btn:active,.slot:active,#touch button:active{transform:scale(.97)}
+@media (hover:hover) and (pointer:fine){.btn:hover{background:#2a2a2a}.btn.line:hover{background:#1111110d}.slot:hover:not(.sel){box-shadow:inset 0 0 0 1px #5a666b}}
+.row{display:flex;gap:12px;flex-wrap:wrap;align-items:center}
+.nb{white-space:nowrap}
+/* printed matter: flat paper, square corners, one shadow */
+.book{width:min(860px,100%);padding:clamp(20px,3vw,34px);display:flex;flex-direction:column;gap:16px;max-height:100%;overflow:auto;box-sizing:border-box;background:var(--paper);color:var(--ink);box-shadow:var(--lift)}
+.book .head{display:flex;justify-content:space-between;align-items:baseline;gap:12px;flex-wrap:wrap;row-gap:4px;border-bottom:2px solid var(--ink);padding-bottom:10px}
+.book h2{margin:0;font:900 clamp(26px,3.6vw,38px)/1.15 var(--f-head);letter-spacing:.02em}
+.book .head span{font:500 12px/1.4 var(--f-ui);letter-spacing:.08em;color:var(--ink-2)}
+.book::-webkit-scrollbar,.news::-webkit-scrollbar{width:8px}.book::-webkit-scrollbar-thumb,.news::-webkit-scrollbar-thumb{background:#1111113a;border-radius:4px}
+/* the one authored motion: a fluorescent tube catching — the sheet flickers on, then holds */
+.overlay:not([hidden]) .book,.overlay:not([hidden]) .news,.overlay:not([hidden]) .dcard{animation:tube .5s steps(1,end) both}
+@keyframes tube{0%{opacity:0}12%{opacity:.85}18%{opacity:.15}30%{opacity:1}38%{opacity:.55}46%,100%{opacity:1}}
+.entries{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px}
+.entry{display:grid;grid-template-columns:84px 1fr;gap:12px;align-items:start;padding-bottom:12px;border-bottom:1px solid #11111122;min-width:0}
+.entry canvas{width:84px;height:84px;background:#15181a;image-rendering:pixelated}
+.entry h4{margin:0;font:900 20px/1.2 var(--f-head)}
+.entry small{display:block;font:500 11px/1.4 var(--f-ui);color:var(--ink-2);letter-spacing:.06em;margin:3px 0 5px}
+.entry ul{margin:0;padding-left:16px;font:400 13px/1.55 var(--f-ui)}
+.entry.unk h4{color:var(--ink-2)}
+.keys{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:8px 18px;font:400 13px/1.4 var(--f-ui);margin:0}
+.keys div{display:flex;gap:8px;align-items:center}
+.keys kbd{background:var(--ink);color:var(--paper);box-shadow:none;flex-shrink:0}
+#meet .book{width:min(560px,100%)}
+#meet .portrait{display:grid;grid-template-columns:minmax(0,190px) 1fr;gap:18px;align-items:center}
+#meet canvas,.entry canvas{image-rendering:pixelated}
+#meet canvas{width:100%;aspect-ratio:1;max-width:100%;background:#15181a}
+#meet h2{font:900 clamp(34px,6vw,52px)/1.1 var(--f-head)}
+#meet .blurb{margin:0;font:400 15px/1.75 var(--f-ui)}
+#meet ul{margin:0;padding-left:18px;font:400 14px/1.7 var(--f-ui)}
+#meetrules b{color:var(--red);font-weight:700}
+
+/* ---------- title: the village under one fluorescent tube ---------- */
+#title{justify-content:space-between;align-items:stretch;background:linear-gradient(90deg,#07090af2 0%,#07090aa8 40%,#07090a00 62%,#07090a55 100%);padding:clamp(20px,4vw,48px)}
+#title .left{display:flex;flex-direction:column;justify-content:flex-end;gap:22px;max-width:420px;min-width:0}
+#title .lead{margin:0;font:400 15px/1.85 var(--f-ui);color:var(--fluo-2);text-shadow:0 2px 8px #000}
+.menu{display:flex;flex-direction:column;gap:4px;align-items:flex-start}
+.menu>button{display:flex;flex-direction:column;align-items:flex-start;gap:3px;padding:8px 0;min-height:48px;text-align:left;color:var(--fluo);text-shadow:0 2px 8px #000}
+.menu>button b{font:900 24px/1.1 var(--f-head);letter-spacing:.06em;transition:color .2s}
+.menu>button.ghost b{font-size:20px;color:#c3d2ce}
+.menu small{font:400 12px/1.4 var(--f-ui);color:var(--fluo-2)}
+.menu>button:hover b,.menu>button:focus-visible b{color:#fff;text-decoration:underline;text-decoration-thickness:1.5px;text-underline-offset:6px}
+#best{font:400 12px/1.4 var(--f-ui);color:var(--fluo-2);margin-top:8px}
+.minor{display:flex;flex-direction:column;gap:2px;align-items:flex-start}
+.menu .link{font:400 12px/1.4 var(--f-ui);color:var(--fluo-2);text-decoration:underline;text-underline-offset:3px;padding:6px 0;text-shadow:none}
+#title .right{display:flex;flex-direction:column;align-items:center;gap:18px;padding-top:4px}
+.vtitle{writing-mode:vertical-rl;font:900 clamp(60px,10.5vh,120px)/1 var(--f-head);letter-spacing:.08em;color:var(--fluo);margin:0;
+  text-shadow:0 0 18px #dcefea44,0 4px 30px #000;animation:tube 1.4s steps(1,end) .3s both}
+.vsub{writing-mode:vertical-rl;font:500 13px/1 var(--f-ui);letter-spacing:.5em;color:var(--fluo-2)}
+/* almanac: a small page torn from the 農會 calendar */
+.almanac{display:grid;grid-template-columns:auto 1fr;gap:6px 12px;padding:0 14px 12px;font:400 14px/1.4 var(--f-ui);align-items:baseline;max-width:300px;background:var(--paper);color:var(--ink);box-shadow:var(--lift)}
+.almanac .h{grid-column:1/-1;display:flex;justify-content:space-between;margin:0 -14px 6px;padding:7px 14px;background:var(--red);color:var(--paper);font:700 12px/1 var(--f-ui);letter-spacing:.14em}
+.almanac b{font:900 24px/1.15 var(--f-head);grid-column:1/-1}
+.almanac .yi,.almanac .ji{font:900 15px/1 var(--f-head);color:var(--paper);padding:4px 5px;border-radius:2px;align-self:center}
+.almanac .yi{background:var(--iron)}.almanac .ji{background:var(--red)}
+
+/* ---------- 七夜 night card: one page of the tear-off calendar ---------- */
+.ncard{width:min(520px,100%);gap:14px;padding-top:30px;position:relative;
+  -webkit-mask:radial-gradient(circle 4px at 10px 10px,#0000 98%,#000) -10px -10px/20px 100% repeat-x,linear-gradient(#000,#000) 0 10px/100% calc(100% - 10px) no-repeat;
+          mask:radial-gradient(circle 4px at 10px 10px,#0000 98%,#000) -10px -10px/20px 100% repeat-x,linear-gradient(#000,#000) 0 10px/100% calc(100% - 10px) no-repeat}
+.ncard .head{border-bottom:0;padding:0;justify-content:flex-end}
+.ncard .calday{display:grid;grid-template-columns:auto 1fr;gap:18px;align-items:center;border-bottom:2px solid var(--ink);padding-bottom:16px}
+.ncard #ncnum{font:900 clamp(96px,16vw,140px)/.82 var(--f-head);color:var(--red);font-variant-numeric:lining-nums;letter-spacing:-.04em}
+.ncard h2{font-size:clamp(30px,5vw,44px)}
+.ncard .almanac{box-shadow:none;padding:0;max-width:none;background:none;margin-top:8px}
+.ncard .almanac b{font-size:18px}
+.ncard .almanac .d{grid-column:1/-1;font:400 13px/1.6 var(--f-ui);color:var(--ink-2);margin-top:2px}
+#ncbody{display:flex;flex-direction:column;gap:9px}
+#ncbody p,.blsum{margin:0;font:400 14px/1.75 var(--f-ui)}
+#ncbody b,#relost b{font:700 14px/1 var(--f-ui);margin-right:10px;color:var(--ink)}
+#ncbody .note{font:400 18px/1.6 var(--f-hand);color:#22324a}
+.calls,.calls b{color:var(--red)!important}
+.chip{display:inline-block;font:700 13px/1 var(--f-ui);padding:5px 8px;margin:0 6px 4px 0;box-shadow:inset 0 0 0 1.2px var(--ink);border-radius:2px}
+.calfoot{margin:4px 0 0;font:500 11px/1 var(--f-ui);letter-spacing:.3em;color:var(--ink-2);text-align:center;border-top:1px solid #11111122;padding-top:12px}
+.lives{display:flex;gap:6px;align-items:center}
+.doll{width:14px;height:22px;background:var(--ink);clip-path:polygon(50% 0,80% 14%,70% 30%,100% 42%,82% 52%,74% 100%,26% 100%,18% 52%,0 42%,30% 30%,20% 14%)}
+.doll.burnt{background:linear-gradient(#0000 40%,#7a3a12 40%,#1a1a1a 60%);opacity:.45}
+.vh{position:absolute;width:1px;height:1px;overflow:hidden;clip-path:inset(50%)}
+
+/* ---------- dawn: three 籤詩 in cold morning light through the window grille ---------- */
+#bless{background:
+  repeating-linear-gradient(45deg,#2f5a4c00 0 46px,#14251f55 46px 50px),repeating-linear-gradient(-45deg,#2f5a4c00 0 46px,#14251f55 46px 50px),
+  radial-gradient(ellipse at 30% 20%,#eef7f3,#a9c2bb 70%,#7e9890)}
+#bless .book{background:none;box-shadow:none;color:var(--ink);width:min(760px,100%)}
+#bless .head{border-color:#111111aa}
+.bcards{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:18px}
+.bcard{position:relative;display:grid;grid-template-rows:auto 1fr auto;justify-items:center;gap:10px;text-align:center;padding:16px 12px 16px;min-height:290px;
+  background:#f6edd0;color:var(--ink);box-shadow:inset 0 0 0 4px #f6edd0,inset 0 0 0 5.5px var(--red),inset 0 0 0 8px #f6edd0,inset 0 0 0 9px var(--red),0 14px 30px #1d2e2944;transition:transform .25s var(--ease),box-shadow .25s}
+.bcard u{text-decoration:none;font:700 12px/1 var(--f-ui);letter-spacing:.2em;color:var(--red);display:flex;gap:6px;align-items:center}
+.bcard b{writing-mode:vertical-rl;font:900 38px/1 var(--f-head);letter-spacing:.18em;align-self:center}
+.bcard small{font:400 12px/1.5 var(--f-ui);color:var(--ink-2)}
+.bcard span{font:500 14px/1.6 var(--f-ui)}
+@media (hover:hover) and (pointer:fine){.bcard:hover{transform:translateY(-6px)}}
+.bcard:focus-visible{outline:2px solid var(--ink);outline-offset:4px}
+
+/* ---------- death: a black-framed obituary, no red ---------- */
+#death{background:#030303f0}
+.dcard{width:min(640px,100%);display:grid;grid-template-columns:minmax(0,220px) 1fr;gap:24px;align-items:center;padding:clamp(26px,4vw,38px);box-sizing:border-box;
+  background:var(--paper);color:var(--ink);box-shadow:inset 0 0 0 10px var(--ink),inset 0 0 0 13px var(--paper),inset 0 0 0 14px var(--ink),0 30px 80px #000}
+.dcard canvas{width:100%;aspect-ratio:1;image-rendering:pixelated;background:#0a0a0c;filter:grayscale(1) contrast(1.15) brightness(1.05);box-shadow:0 0 0 5px var(--paper),0 0 0 7px var(--ink)}
+.dcard .dk{margin:0;font:500 12px/1.6 var(--f-ui);letter-spacing:.08em;color:var(--ink-2)}
+.dcard h2{margin:6px 0 10px;font:900 clamp(26px,4.2vw,38px)/1.2 var(--f-head);color:var(--ink);text-wrap:balance}
+.dcard p#deathtip{margin:0 0 18px;font:400 15px/1.75 var(--f-ui)}
+.dcard .dfoot{margin:16px 0 0;font:900 14px/1 var(--f-head);letter-spacing:.4em;text-align:right}
+
+/* ---------- newspaper: grey newsprint ---------- */
+.news{width:min(820px,100%);padding:clamp(18px,3vw,30px);box-sizing:border-box;display:flex;flex-direction:column;gap:12px;max-height:100%;overflow:auto;background:var(--news);color:#1a1a1a;box-shadow:var(--lift)}
+.masthead{display:flex;justify-content:space-between;align-items:flex-end;border-bottom:4px double #1a1a1a;padding-bottom:8px;gap:10px;flex-wrap:wrap}
+.masthead b{font:900 clamp(30px,5vw,46px)/1 var(--f-head);letter-spacing:.12em}
+.masthead span{font:400 12px/1.4 var(--f-ui);color:#4a4844;letter-spacing:.04em}
+.newsbody{display:grid;grid-template-columns:auto minmax(0,1fr);gap:20px}
+.headline{writing-mode:vertical-rl;font:900 clamp(28px,4.2vw,42px)/1.15 var(--f-head);margin:0;max-height:440px;color:#1a1a1a;border-left:1px solid #1a1a1a55;padding-left:14px}
+.headline.bad{color:#1a1a1a}
+.article{column-count:2;column-gap:22px;column-rule:1px solid #1a1a1a33;font:500 14px/1.8 var(--f-head);text-align:justify;min-width:0}
+.article p{margin:0 0 8px;break-inside:avoid-column}
+.factbox{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));border:1.5px solid #1a1a1a}
+.factbox div{padding:7px 10px;border-right:1px solid #1a1a1a44;display:flex;flex-direction:column;gap:3px}
+.factbox div:last-child{border-right:0}
+.factbox span{font:500 11px/1.2 var(--f-ui);color:#4a4844;letter-spacing:.08em}
+.factbox b{font:900 24px/1.1 var(--f-head);font-variant-numeric:tabular-nums}
+.news .btn.line{color:#1a1a1a}
+#sharemsg{font:400 13px/1.4 var(--f-ui);color:#4a4844}
+
+/* ---------- 七夜錄: the calendar's seven days ---------- */
+#runend .book{width:min(680px,100%)}
+#runend h2{font-size:clamp(30px,5vw,46px);text-wrap:balance}
+.rerows{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));border:1.5px solid var(--ink)}
+.rerows div{display:flex;flex-direction:column;gap:4px;padding:10px 8px;border-right:1px solid #11111133;min-height:96px;position:relative}
+.rerows div:last-child{border-right:0}
+.rerows b{font:900 15px/1.2 var(--f-head)}
+.rerows span{font:400 12px/1.4 var(--f-ui);color:var(--ink-2)}
+.rerows span:last-child{font:900 18px/1 var(--f-head);color:var(--ink);margin-top:auto;font-variant-numeric:tabular-nums}
+.rerows .unk{background:#1111110a}.rerows .unk b{color:var(--ink-2)}
+.rerows .fail{background:#1111110a}.rerows .fail::after{content:"";position:absolute;inset:14px 10px;background:linear-gradient(to top right,#0000 calc(50% - 1.5px),var(--red) calc(50% - 1.5px),var(--red) calc(50% + 1.5px),#0000 calc(50% + 1.5px))}
+
+
+/* ---------- shell: start screen, opening, settings, credits ---------- */
+#boot{background:#040506;flex-direction:column;gap:22px;text-align:center;cursor:pointer;z-index:5}
+#boot b{font:900 clamp(48px,9vw,96px)/1 var(--f-head);letter-spacing:.2em;color:var(--fluo);text-shadow:0 0 22px #dcefea33;animation:tube 1.6s steps(1,end) .2s both}
+#boot p{margin:0;font:400 14px/1.8 var(--f-ui);color:var(--fluo-2)}
+#boot .btn{background:none;color:var(--fluo);box-shadow:inset 0 0 0 1.5px #dcefea66;animation:breath 2.4s ease-in-out 1.8s infinite both}
+@keyframes breath{0%,100%{opacity:.55}50%{opacity:1}}
+#intro{background:#040506;flex-direction:column;justify-content:center;gap:28px;padding:clamp(28px,8vw,96px);cursor:pointer}
+#introline{margin:0;max-width:28em;font:500 clamp(20px,3vw,30px)/1.8 var(--f-head);color:var(--fluo);text-wrap:balance;text-align:center;min-height:3.6em}
+#introline.show{animation:tube .7s steps(1,end) both}
+#intro .row{justify-content:center;gap:24px;font:400 12px/1 var(--f-ui);color:var(--fluo-2)}
+#intro .link,#title .link2{font:400 12px/1.4 var(--f-ui);color:var(--fluo-2);text-decoration:underline;text-underline-offset:3px;padding:8px 4px}
+.links{display:flex;gap:14px;margin-top:2px}
+#settings .book,#credits .book{width:min(560px,100%)}
+.setrow{display:grid;grid-template-columns:7em 1fr 3em;gap:14px;align-items:center;font:500 15px/1.4 var(--f-ui);padding:6px 0;border-bottom:1px solid #11111118}
+.setrow output{font:700 14px/1 var(--f-ui);text-align:right;font-variant-numeric:tabular-nums;color:var(--ink-2)}
+.setrow input[type=range]{width:100%;accent-color:var(--ink);height:28px}
+.setrow .btn{justify-self:start;grid-column:2/4}
+.credits{display:grid;grid-template-columns:7em 1fr;gap:10px 16px;margin:0;font:400 14px/1.7 var(--f-ui)}
+.credits dt{font:700 13px/1.7 var(--f-ui);color:var(--ink-2)}
+.credits dd{margin:0}
+.credits small{display:block;color:var(--ink-2);font-size:12px}
+@media (max-width:720px){
+  #title{flex-direction:column-reverse;justify-content:flex-end;gap:16px;background:linear-gradient(0deg,#07090af7 0%,#07090ac4 55%,#07090a33 100%)}
+  #title .right{flex-direction:row;align-items:flex-start;justify-content:flex-end}
+  .vtitle{font-size:clamp(44px,13vw,56px)}
+  #title .lead{font-size:14px;line-height:1.75;text-wrap:pretty}#title .lead br{display:none}
+  .almanac{font-size:13px}.almanac b{font-size:21px}
+  .menu>button b{font-size:21px}.menu>button.ghost b{font-size:18px}
+  #touch{grid-template-columns:repeat(2,54px);gap:8px;bottom:78px}#touch button{width:54px;height:54px;font-size:15px}
+  #sub{left:16px;transform:none;width:calc(100% - 160px);bottom:118px;align-items:flex-start}#sub div{text-align:left;font-size:15px}
+  #itemtip{left:16px;transform:none;text-align:left;width:calc(100% - 160px);bottom:72px}#itemtip p{display:none}#itemtip b{font-size:15px}
+  #goal{top:112px;left:16px;transform:none;font-size:14px;white-space:normal;max-width:52%}
+  #tags{right:60px;gap:3px}.tag{width:21px;height:60px;font-size:11px;padding-top:6px}
+  .slot{width:46px;height:46px}.slot img{width:36px;height:36px}
+  .article{column-count:1}.factbox{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .newsbody{grid-template-columns:minmax(0,1fr)}.headline{writing-mode:horizontal-tb;max-height:none;border-left:0;padding-left:0}
+  #meet .portrait{grid-template-columns:minmax(0,1fr)}#meet canvas{max-width:200px}
+  .dcard{grid-template-columns:minmax(0,1fr)}.dcard canvas{max-width:170px}
+  .bcards{grid-template-columns:minmax(0,1fr)}.bcard{min-height:0;grid-template-columns:auto 1fr;grid-template-rows:auto auto;justify-items:start;text-align:left;column-gap:16px;padding:16px 18px}
+  .bcard b{grid-row:1/3;font-size:30px}.bcard u{grid-column:2}.bcard small,.bcard span{grid-column:2}
+  .rerows{grid-template-columns:repeat(4,minmax(0,1fr))}.rerows div{min-height:76px}.rerows div:nth-child(4){border-right:0}.rerows div:nth-child(n+5){border-top:1px solid #11111133}
+  .ncard .calday{grid-template-columns:auto 1fr;gap:12px}
+  #tut{width:min(420px,calc(100% - 140px));left:auto;right:auto;transform:none;margin-left:110px;top:110px;padding:10px 12px}
+  #tut h3{font-size:17px}#tut p{font-size:13px}
+}
+@media (prefers-reduced-motion:reduce){.overlay .book,.overlay .news,.overlay .dcard,.vtitle,#sub div{animation:none!important}.incense .ember{animation:none}}
+</style>
+
+<div id="app">
+  <div id="stage">
+    <canvas id="cv" aria-label="遊戲畫面"></canvas>
+    <div id="hud" hidden>
+      <div id="clock"><div class="incense"><i class="base"></i><i class="stick" id="stick"></i><i class="ember" id="ember"></i></div>
+        <div class="shichen"><b id="shichen">子時</b><span id="dawn">雞啼前 6:00</span></div></div>
+      <div id="goal"></div>
+      <div id="tags"></div>
+      <button id="pausebtn" title="暫停（Esc）" aria-label="暫停"><i></i><i></i></button>
+      <div id="sub"></div>
+      <div id="itemtip"><b id="itname"></b><p id="itdesc"></p></div>
+      <div id="tray"></div>
+      <div id="tut" hidden><div class="n" id="tutn"></div><h3 id="tuth"></h3><p id="tutp"></p></div>
+    </div>
+    <div id="touch" hidden>
+      <button id="t-breath">屏息</button><button id="t-act">互動</button>
+      <button id="t-crouch">蹲</button><button id="t-item">道具</button>
+      <button id="t-run">跑</button><button id="t-follow">喊人</button>
+    </div>
+
+    <div class="overlay" id="title">
+      <div class="left">
+        <p class="lead">山腳村停電了。天亮前，還有人困在村裡。<br>帶他們上村口的貨車，或者，只帶你自己。</p>
+        <div class="almanac" id="almanac"></div>
+        <div class="menu">
+          <button id="m-start"><b>入夜</b><small id="m-start-sub">連續七個晚上，撐到頭七</small></button>
+          <button id="m-quick" class="ghost"><b>單夜</b><small>只玩一夜，死了馬上重來</small></button>
+          <button id="m-tut" class="ghost"><b>新手教學</b><small>五分鐘學會怎麼活下來</small></button>
+          <button id="m-codex" class="ghost"><b>怪談錄</b><small id="m-codex-sub">遇過的怪談與對付方法</small></button>
+          <span class="links"><button id="m-settings" class="link2">設定</button><button id="m-credits" class="link2">製作名單</button></span>
+          <span id="best"></span><span class="minor"><button id="m-new" class="link" hidden>放棄這一輪，重新開始七夜</button><button id="m-plays" class="link" hidden></button></span>
+        </div>
+      </div>
+      <div class="right">
+        <h1 class="vtitle">怪談救援</h1>
+        <span class="vsub">七夜　山腳村</span>
+      </div>
+    </div>
+
+    <div class="overlay dim" id="codex" hidden>
+      <div class="book">
+        <div class="head"><h2>怪談錄</h2><span id="codexcount"></span></div>
+        <div class="entries" id="entries"></div>
+        <div class="row"><button class="btn" id="codexclose">闔上（Esc）</button></div>
+      </div>
+    </div>
+
+    <div class="overlay dim" id="meet" hidden>
+      <div class="book">
+        <div class="portrait"><canvas id="meetcv" width="380" height="380"></canvas>
+          <div><h2 id="meetname"></h2><div class="head" style="border:0;padding:4px 0 10px"><span id="meeteyebrow"></span><span id="meetorigin"></span></div><p class="blurb" id="meetblurb"></p></div></div>
+        <ul id="meetrules"></ul>
+        <div class="row"><button class="btn red" id="meetok">記住了（Enter）</button></div>
+      </div>
+    </div>
+
+    <div class="overlay dim" id="pause" hidden>
+      <div class="book">
+        <div class="head"><h2>夜還沒結束</h2><span id="pauseinfo"></span></div>
+        <div class="entries" id="pentries"></div>
+        <div class="keys" id="pkeys"></div>
+        <div class="row"><button class="btn red" id="resume">繼續（Esc）</button><button class="btn line" id="restart">重玩這一夜</button><button class="btn line" id="totitle">回標題</button><button class="btn line" id="psettings">設定</button></div>
+      </div>
+    </div>
+
+    <div class="overlay" id="death" hidden>
+      <div class="dcard"><canvas id="deathcv" width="320" height="320"></canvas>
+        <div><p class="dk" id="deathwho"></p><h2 id="deathline"></h2><p id="deathtip"></p>
+          <div class="row"><button class="btn red" id="dretry">立刻再來（R）</button><button class="btn line" id="dnews">看今晚的報紙（Enter）</button></div>
+          <p class="dfoot">山腳村　慟啟</p></div></div>
+    </div>
+
+    <div class="overlay dim" id="nightcard" hidden>
+      <div class="book ncard">
+        <div class="head"><span class="lives" id="nclives"></span></div>
+        <div class="calday"><b id="ncnum"></b><div><h2 id="ncname"></h2><div class="almanac" id="ncalm"></div></div></div>
+        <div id="ncbody"></div>
+        <div class="row"><button class="btn red" id="ncgo">入夜（Enter）</button><button class="btn line" id="nctitle">回標題</button></div>
+        <p class="calfoot">山腳村農會　敬贈</p>
+      </div>
+    </div>
+
+    <div class="overlay" id="bless" hidden>
+      <div class="book">
+        <div class="head"><h2>天亮了</h2><span id="blhint">抽一支籤，七夜都有效</span></div>
+        <p id="blsum" class="blsum"></p>
+        <div class="bcards" id="blcards"></div>
+      </div>
+    </div>
+
+    <div class="overlay dim" id="runend" hidden>
+      <div class="book">
+        <div class="head"><h2 id="rehead"></h2><span id="rebest"></span></div>
+        <p id="resub" class="blsum"></p>
+        <div class="rerows" id="rerows"></div>
+        <p id="relost" class="calls"></p>
+        <div class="row"><button class="btn red" id="reagain">再走一次七夜（R）</button><button class="btn line" id="retitle">回標題</button></div>
+      </div>
+    </div>
+
+    <div class="overlay dim" id="settings" hidden>
+      <div class="book">
+        <div class="head"><h2>設定</h2><span>會記在這台電腦上</span></div>
+        <label class="setrow">主音量<input type="range" id="v-master" min="0" max="100" step="5"><output id="o-master"></output></label>
+        <label class="setrow">配樂<input type="range" id="v-music" min="0" max="100" step="5"><output id="o-music"></output></label>
+        <label class="setrow">音效與環境<input type="range" id="v-sfx" min="0" max="100" step="5"><output id="o-sfx"></output></label>
+        <div class="setrow"><span>被抓的畫面</span><button class="btn line" id="closeup" aria-pressed="true">驚嚇特寫：開</button></div>
+        <div class="setrow"><span>聲音</span><button class="btn line" id="mute">聲音：開（M）</button></div>
+        <div class="setrow"><span>畫面</span><button class="btn line" id="fullscreen">全螢幕</button></div>
+        <div class="row"><button class="btn" id="setclose">好（Esc）</button></div>
+      </div>
+    </div>
+
+    <div class="overlay dim" id="credits" hidden>
+      <div class="book">
+        <div class="head"><h2>製作名單</h2><span>怪談救援・七夜山腳村</span></div>
+        <dl class="credits">
+          <dt>製作</dt><dd>Hunter</dd>
+          <dt>設計與程式</dt><dd>Hunter 與 Claude（Anthropic）協作</dd>
+          <dt>像素美術</dt><dd>全部以程式繪製</dd>
+          <dt>音效</dt><dd>BigSoundBank・Joseph Sardin 錄製<small>CC0 公眾領域授權：狗叫、腳步、心跳、門、鞭炮、廟鐘、蟲鳴、青蛙、風聲等 17 段</small></dd>
+          <dt>字型</dt><dd>思源宋體、思源黑體（Google Noto）、芫荽<small>SIL Open Font License</small></dd>
+          <dt>民俗</dt><dd>虎姑婆、魔神仔、紅衣小女孩、頭七等說法依民間流傳整理，細節仍待查證</dd>
+        </dl>
+        <div class="row"><button class="btn" id="credclose">闔上（Esc）</button></div>
+      </div>
+    </div>
+
+    <div class="overlay" id="intro" hidden>
+      <p id="introline"></p>
+      <div class="row"><span id="introhint">按任意鍵繼續</span><button id="introskip" class="link">跳過</button></div>
+    </div>
+
+    <div class="overlay" id="boot">
+      <b>山腳村</b>
+      <p>停電的第一夜。<br>戴上耳機，把燈關掉，效果最好。</p>
+      <button class="btn" id="bootgo">按任意鍵開始</button>
+    </div>
+
+    <div class="overlay dim" id="end" hidden>
+      <div class="news">
+        <div class="masthead"><b>山腳日報</b><span id="newsdate"></span></div>
+        <div class="newsbody"><h2 class="headline" id="headline"></h2><div class="article" id="article"></div></div>
+        <div class="factbox" id="facts"></div>
+        <div class="row"><button class="btn red" id="again">再入一夜（R）</button><button class="btn line" id="replay">重玩同一夜</button><button class="btn line" id="share">複製報導</button><button class="btn line" id="endtitle">回標題</button><span id="sharemsg"></span></div>
+      </div>
+    </div>
+  </div>
+</div>
