@@ -1,3 +1,4 @@
 .DS_Store
 # QA 截圖是過程檔，不進版控
 rounds/qa-shots*/
+tests/out/

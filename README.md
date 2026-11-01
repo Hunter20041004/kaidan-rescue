@@ -1,119 +1,53 @@
-# 怪談救援 v5｜原型說明
+# Kaidan Rescue 怪談救援
 
-## 1. 遊戲原型
-- 檔案：`index.html`（單一檔案，雙擊用瀏覽器打開就能玩）
-- 原始碼在 `src/`，改完執行 `./build.sh` 重新串出 `index.html`
-- 舊版保留：`v3-index.html`（向量畫風）、`v2-index.html`
-- 截圖：`docs/screenshots/v4/`（桌機 1280×800、手機 375×812，含 5 倍放大的角色素材表 `sprites.png`）
-- **v4 尚未發布到線上，也還沒 commit。**
+**A browser horror game set in a Taiwanese village during a blackout: lead the villagers to the truck before the rooster crows, while monsters from Taiwanese folklore hunt you in the dark.**
 
-## 1.5 v5：七夜（2026-10-27）
-主模式從「一夜」改成「七夜」連續挑戰，讓每一局都有下一局的理由。「單夜」仍保留在標題畫面。
-- **七夜**：一輪七個晚上。頭一夜 4 分鐘、4 個人、2 隻怪；之後每夜更長、人更多、怪更多更快；第七夜「頭七」固定是鬼門開（4 隻怪）。數值在 `src/content.js` 的 `NIGHTS`。
-- **替身紙人**：每輪 3 個。被抓時燒一個，重來同一夜；燒完這輪就結束。半夜回標題、重新整理也算燒一個；一個人都沒帶上車（自己開車走、躲到天亮）這夜不算數，也燒一個。
-- **救人和失去都會延續**：救到的人隔夜送你一樣道具；用剩的道具帶到下一夜。天亮時自己撐過來的人不算你救的。沒救到的人整輪都可能用他的名字在你背後叫你，每少一人怪談就快一些。同一輪不會再遇到同一個人（名字擴充到 40 個）。
-- **天亮祝福**：每撐過一夜，三選一，整輪有效（長氣、輕步、夜眼、腳程、人緣、多一袋、香火、鐵膽、平安符；平安符整輪只擋一次）。
-- **畫面**：每夜開始前的「夜卡」（農民曆、帶在身上的東西、沒回來的人、祖先保佑、替身數）、天亮選祝福、整輪結束的「七夜錄」。進度存在瀏覽器裡，關掉再開可以繼續。
-- **試玩紀錄**：每一夜的結果（第幾夜、死因、存活秒數、救幾人）存在玩家自己的瀏覽器；標題畫面「複製試玩紀錄」可以一鍵複製給你。不會上傳到任何地方。
-- **順手修掉**：網頁開頭缺編碼宣告，放上任何網站中文都會變亂碼（雙擊打開時剛好沒事，所以之前沒抓到）；村民的髮型資料沒帶進遊戲，所有人都是同一種短髮。
+台灣民俗怪談的網頁恐怖遊戲：停電的山腳村裡，天亮前把村民帶上村口的貨車。
 
-## 2. 操作方式
-**目標**：雞啼前把村裡的人帶到村口貨車（七夜每夜 4–5.5 分鐘、4–6 人；單夜 7 分鐘、6 人）。站在車旁按 E 撤離（還有人沒救要按兩次）。
+> **Type** Personal project · **Status** In progress (playable prototype, 2026-10) · **Role** Solo project · **Stack** Single-file HTML, JavaScript, Canvas pixel art, Python + Playwright tests
 
-| 電腦 | 手機 | 作用 |
-|---|---|---|
-| WASD／方向鍵 | 左半邊畫面拖曳 | 移動（滑鼠決定手電筒方向） |
-| Shift | 按住「跑」 | 奔跑：快，但腳步聲大 |
-| C | 「蹲」 | 蹲下：安靜；草叢裡蹲著看不見；送葬隊經過時蹲下低頭 |
-| 按住 Space | 按住「屏息」 | 憋氣：殭屍找不到你（最多 5 秒） |
-| E | 「互動」 | 躲、叫人、關門／開門、敲鐘、打破路燈、拜土地公、回答裂口女「普通」、上車 |
-| 左鍵／F | 「道具」 | 使用道具（往滑鼠或面對的方向） |
-| Q、Tab、1–5、滾輪 | 點道具格 | 切換道具 |
-| G | 「喊人」 | 叫同伴原地等／跟上 |
-| Esc／P | 右上「停」 | 暫停 |
-| M | 暫停選單內 | 聲音開關 |
-| R | 死亡卡上 | 立刻再來一夜 |
+![Title screen: the farmer's almanac sets tonight's weather](docs/screenshots/title.png)
 
-## 3. 已實作與驗證
+**[Play in the browser](https://hunter20041004.github.io/kaidan-rescue/)** · desktop or phone, no install
 
-### 這一版回應了 Hunter 的哪些回饋
-| 回饋 | v4 的做法 |
-|---|---|
-| 為什麼不用像素風 | 整個畫面改成像素風＋斜上方 45 度：世界畫在小畫布上，再以整數倍放大，每個像素都是方的；字另外用高解析度畫，所以中文清楚 |
-| 妖怪不夠還原 | 五隻怪都照民間說法重畫，四個方向＋嚇人畫面：虎姑婆是駝背老婆婆，追人時露出虎尾虎爪，嚇人時變成老虎頭；裂口女有口罩、紅大衣，問話時拿下口罩、手拿剪刀；殭屍穿清朝官服、戴官帽、額頭貼符、用跳的；魔神仔是紅臉小孩模樣；水鬼濕髮蓋臉、在水裡只露頭頂 |
-| 不夠恐怖、沒心跳 | 怪談沒被照到時看不見，只聽得到牠從哪個方向來（左右聲道）、看到眼睛反光；出現前一兩秒全靜；躲起來聲音悶住；被抓時怪臉占滿畫面；驚險擦身（怪在你藏身處旁停下張望）；假驚嚇（黑貓、背後腳步、路燈閃滅）；背景音樂分層：二胡似的五聲音階、木魚、緊張時的顫音弦樂、最後一分鐘的鼓 |
-| 節奏（先嫌慢、後嫌快，最後要由慢到快） | 開場約 20 秒只有預兆和聲音（假驚嚇、遠處尖叫），約 30 秒第一隻怪從黑暗中循著動靜靠近；怪談從 1 隻慢慢增加到 4 隻，速度從比你慢一路加快；最後一分鐘才全力衝刺，還沒救到的村民會一起呼喊 |
-| 走過路過的互動沒用 | 地圖上每樣東西都有作用（見下表） |
-| 沒有想再玩一局 | 死亡卡一鍵重來；每夜隨機的同伴個性、隨機事件、規矩怪；每完成一夜解鎖一種新的夜晚狀況；報紙寫下你的驚險時刻 |
-| 不是每個怪都要追人（新） | 加入三個「規矩怪」：不追人、趕不走，只給規矩，同伴也要守 |
-| 不要一物剋一怪（新） | 道具改成通用工具，各自對多種怪有不同效果；被抓時不再自動用道具脫身 |
+## Background
 
-**規矩怪**
-| 名稱 | 規矩 | 違反的後果 |
-|---|---|---|
-| 紅衣小女孩 | 她出現時，三秒內不准動（走、跑、丟東西都算） | 手電筒熄 9 秒、附近怪談全被引來、帶走一個跟著你的人；小孩可能忍不住動，被她帶走 |
-| 夜半送葬 | 隊伍經過時蹲下低頭，不要用手電筒照它 | 你被帶進隊伍，連按方向鍵或靠同伴喊你才能回來；好奇的同伴會跟著走 |
-| 叫名字 | 背後有人叫你時，不要回頭，也不要按互動回答 | 手電筒熄滅、所有怪談知道你在哪；膽小的同伴可能會答應，被叫走 |
+Made for Taiwanese players who grew up with these stories (Grandaunt Tiger, Mosinna, the girl in red, the seventh-night return) and notice when they are told wrong. Survival depends on knowing the folk rules, such as holding your breath near a jiangshi or answering the slit-mouthed woman correctly, rather than fighting.
 
-**道具（通用工具）**
-| 道具 | 作用 |
-|---|---|
-| 鞭炮（聲音） | 炸響把怪談都引過去，太近的會被嚇一跳；魔神仔特別怕 |
-| 麥芽糖（氣味） | 誘餌：裂口女、虎姑婆、魔神仔都會去聞；丟給狗，狗就安靜 |
-| 線香（煙） | 煙裡聞不到人、聽不到呼吸，怕香火的怪進不來；在廟裡補香火 |
-| 煤油（火） | 丟出去點火：擋路、照亮，踩到的怪會被燙退 |
-| 符咒（紙） | 貼在關著的門上，門就撞不開；正面拍在怪身上，怕符的會退開，殭屍會被定住 |
+## What it does
 
-**地圖上的東西**：門（關上後怪要撞一陣子，撞門聲很大）、廟前大鐘（敲了把怪引過去）、井（可以躲，但待太久水鬼會從井底抓人）、風鈴與雞籠（經過會響）、狗（看到人會叫，看到怪會警告你）、曬衣繩（擋視線）、路邊土地公（拜一次得到暫時結界）、路燈（站在燈下怪看得更遠，可以打破）、紙條（撿到會知道一個人在哪）、水窪（踩到會有水聲）。
+- **Five folklore monsters** (Mosinna, Grandaunt Tiger, the slit-mouthed woman, jiangshi, water ghost), each with its own rule for staying alive, plus three "rule spirits" such as the girl in red and a midnight funeral procession.
+- **Rescue under pressure**: find villagers by their cries, have them follow or wait, and get everyone to the truck before dawn.
+- **Folk items and hiding spots**: firecrackers, maltose candy, incense, kerosene and talismans; hide in wardrobes, haystacks, trees or wells.
+- **Seven Nights mode**: each night is longer and harder; villagers you saved bring gifts, and the ones you lost may call your name from behind.
+- **Runs anywhere**: one HTML file with touch controls for phones and keyboard controls for desktop.
 
-### 三個角色、三輪優化（2026-10-24）
-依 Hunter 要求，開了三個分身各自從不同角度優化，跑了三輪。每輪設計與美術先改，再由品質把關驗證；每輪的備份與報告在 `rounds/`（`round-N-index.html`、`round-N-src/`、`round-N-qa.md`）。
-- **遊戲設計＋試玩**：節奏改成由慢到快（集中在 `content.js` 的 `PACE` 表）；新增「被盯上」（怪發現你後先盯著靠近，殭屍會站定聽你的呼吸，給你反應時間，越晚越短）；最後一分鐘村民呼喊；裂口女走到你面前才問話；第一隻怪循著最後的動靜找你，安靜躲好就能讓牠走過去；紅衣小女孩出現時附近的怪也會定住，送葬隊經過時怪會讓路；新同伴個性「守規矩」會提醒你規矩；躲在衣櫃裡被敲門時可以屏息，大人能躲過一次，同一個衣櫃第二次會被找到，小孩一定會被聞到。用自動試玩機器人量測每一版（`rounds/designer-tools/pace.py`）。
-- **恐怖美術＋音效**：被抓時，怪物自己的像素角色加速撲向鏡頭（每隻 3 張 64×64 特寫：暗處、張嘴、伸手），由下往上打光、五官不對稱，臉保持清楚、四周全黑，接著震動、閃光與專屬音效；暫停選單可以關掉「驚嚇特寫」；撲臉後的閃爍每秒 2.2 次以內，系統開「減少動態效果」時不閃不震；最近的怪在 10 格內會有從牠方向傳來的低沉呼吸聲。
-- **品質把關**：每輪審查兩人的改動、修掉 bug（殭屍盯人時滑行、躲衣櫃喘氣反而讓虎姑婆重新敲門等）、補測試、截圖、量效能。
+![Gameplay: following cries for help with a flashlight](docs/screenshots/game.png)
 
-### 已驗證（v5，2026-10-28）
-- `./tests/run_all.sh` 全過：規則 61／61、七夜流程 45／45（含審查找到的 bug 各一條）、重新整理、教學、隨機遊玩 30 夜＋整夜 20 夜 0 錯誤、桌機手機無橫向捲動、載入期間無超過 33 ms 的幀。
-- 單夜模式沒有傳入七夜設定時，和 v4 的亂數與行為逐項比對一致（審查子代理實測 6 個種子）。
-- 機器人（不會用道具）七夜各夜死亡率約 3 成到 9 成，一夜比一夜難；精確難度要真人試玩。
+## Key decisions
 
-### 已驗證（Chromium 無頭瀏覽器自動測試，2026-10-24 v4）
-- **61 個規則情境全部通過**、重新整理後設定仍保留、教學走完、隨機遊玩 30 夜＋整夜 20 夜 **0 個 JavaScript 錯誤**、桌機與手機截圖無重疊、無橫向捲動。
-- 效能（無頭、沒有顯示卡，只能前後比較）：遊戲中每幀約 12 ms，撲臉約 17 ms，載入後前 3 秒沒有超過 33 ms 的卡頓。
+| Decision | Why |
+| --- | --- |
+| Survive by folk rules, not combat | The fear comes from knowing what you must not do, which is how these stories are told. |
+| All pixel art drawn by code, no image files | Keeps the whole game in one small file and avoids art licensing questions. |
+| One self-contained HTML file | Anyone can play from a link or a double-click, on desktop or phone. |
+| Rule behaviour covered by automated browser tests | Each monster's rule must work exactly as the folklore says, or the game feels unfair. |
 
-### 先前版本（v4 初版）的驗證紀錄
-- **43 個規則情境全部通過**，包括：每種怪的規則、回答「普通」脫身、煤油火擋路、麥芽糖引開多種怪、線香的煙蓋過氣味與呼吸、鞭炮嚇一跳、門被撞開、貼符的門撞不開、敲鐘引怪、躲井與水鬼抓人、路燈下被看得更遠、風鈴與狗叫引怪、紙條指出同伴位置、三種規矩怪的「遵守沒事／違反受罰」、開場節奏、時辰加速、怪太久不出現會靠近、死亡卡與按 R 重來。
-- **教學 10 步從頭走到尾**（含被抓重來）。
-- **暫停與真實鍵盤輸入**正常。
-- **隨機亂按壓力測試**：一般難度 60 夜＋「玩家不會死」的整夜測試 20 夜，**0 個 JavaScript 錯誤**；五隻怪與三個規矩怪都出現過，被抓、被帶走、撤離、撐到天亮四種結局都出現過。
-- **畫面**：桌機與手機截圖檢查兩輪（標題、怪談在手電筒裡、紅衣小女孩、送葬隊、死亡卡、怪談錄），手機無橫向捲動。
+## Results
 
-測試中抓到並修好：報紙把規矩怪當成一般怪去查名字而出錯；送葬隊沿你站的路走過時規矩無法遵守（改成蹲下低頭也算迴避）；倖存者被兩種東西同時牽走時，拉回一個會誤放另一個；規矩紙條上的「別看！」疊在規矩文字上；死亡卡標題斷行。
+- Playable prototype with a tutorial, single-night mode and the seven-night campaign.
+- 61 automated rule tests passing in a real browser (for example: Grandaunt Tiger finds people hiding in a wardrobe; answering "ordinary" lets you escape the slit-mouthed woman).
 
-### 沒有測試到（請注意）
-- **沒有真人玩過**，難度、節奏、規矩怪的出現頻率都還沒調。拿掉「被抓自動脫身」後遊戲明顯變難，需要實際玩過才知道合不合理。
-- **聲音**全部用瀏覽器即時合成，無頭環境聽不到，只確認不出錯。背景音樂原本要用 ACE-Step 生成，被本機權限擋下，這版用合成的分層音樂代替。被抓時的撲臉節奏、震動、閃光強度與新的存在感音效，都只看過停格截圖，還沒有真人實際看過、聽過。
-- **手機只在 Chromium 模擬器測過**；iPhone Safari、Android 實機、觸控手感都未驗證。
-- **效能**：測試環境沒有顯示卡，數字不可信。
-- 民俗細節（魔神仔紅臉、送葬迴避方式等）是依一般說法繪製，標示「待查證」於 `docs/art-bible.md`。
+## Run it locally
 
-## 4. 目前最好玩、最值得擴充的互動
-**規矩怪＋同伴**：紅衣小女孩出現時，你一動不動，但身邊的小孩忍不住動了一下；叫名字的聲音從背後傳來，你沒回頭，膽小的同伴卻答應了。規矩很簡單，但它同時約束你和你帶的人，所以每次都會長出不同的故事。下一步可以加更多「保護自己的方法，同時會害到別人」的規矩，例如「過橋不能回頭」「看到燈籠要吹熄」。
+Open `index.html` in a browser. To rebuild it from `src/` after changes, run `./build.sh`. Tests need Python with Playwright: `./tests/run_all.sh`.
 
-## 5. 下一階段最值得改善的三件事
-1. **找 3–5 位真人試玩、調難度**：重點看拿掉自動脫身後的死亡率、規矩怪的頻率、第一分鐘是否夠緊張。
-2. **補實機與聲音**：iPhone／Android 實機測觸控與效能；允許 ACE-Step 執行後，生成一段可循環的台灣民俗風配樂替換合成音樂。
-3. **更多規矩怪與同伴個性**：每種規矩都讓「同伴會不會守規矩」變成一個故事；同時補畫水鬼側面等較弱的素材。
+Development notes (Chinese): [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) · Art direction: [`docs/art-bible.md`](docs/art-bible.md)
 
-## 檔案結構
-| 檔案 | 內容 |
-|---|---|
-| `src/head.html` | 介面版面與樣式 |
-| `src/engine.js` | 地圖格子、碰撞、尋路、視線 |
-| `src/content.js` | 怪談、規矩怪、道具、夜晚狀況、同伴個性、地圖 |
-| `src/game.js` | 遊戲規則、怪談 AI、規矩怪、節奏 |
-| `src/render.js` | 像素畫面、光影、角色與道具素材 |
-| `src/apparitions.js` | 規矩怪的畫面與規矩紙條 |
-| `src/run.js` | 七夜：夜與夜之間的延續、替身、祝福、夜卡與七夜錄、試玩紀錄 |
-| `src/ui.js` | 介面、教學、聲音、操作、主迴圈 |
-| `docs/art-bible.md`、`docs/asset-audit.md`、`docs/decisions.md` | 美術規範、素材驗收、決策紀錄 |
+## Notes
+
+Sound effects are CC0 recordings from BigSoundBank; see [`audio/CREDITS.md`](audio/CREDITS.md). Fonts load from Google Fonts.
+
+## 中文摘要
+
+以台灣民俗怪談為題材的網頁恐怖遊戲。停電的山腳村裡，玩家要在雞啼前把村民帶到村口的貨車；魔神仔、虎姑婆、裂口女、殭屍、水鬼各有一條活命規矩，還有紅衣小女孩、夜半送葬等規矩怪。可以躲衣櫃、草垛、樹上和井裡，用鞭炮、麥芽糖、線香等民俗道具脫身。整個遊戲是一個網頁檔，畫面全由程式即時畫出，手機和電腦都能玩；61 條規矩測試全部通過。
