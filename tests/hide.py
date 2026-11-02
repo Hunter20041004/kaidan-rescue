@@ -4,7 +4,7 @@ import sys,json
 from playwright.sync_api import sync_playwright
 URL='file://'+sys.argv[1];OUT=sys.argv[2] if len(sys.argv)>2 else None;res=[]
 def check(name,ok,detail=''):res.append((name,bool(ok),detail))
-SETUP="""([type,dx,hold,seen])=>{KT.manual=true;KT.startGame(77);const G=KT.G;G.schedule=[];G.events=[];G.apps=[];G.scareT=1e9;G.dogs=[];
+SETUP="""([type,dx,hold,seen])=>{KT.manual=true;KT.startGame(77);const G=KT.G;G.schedule=[];G.events=[];G.apps=[];G.scareT=1e9;G.siegeAt=1e9;G.dogs=[];
   for(const h of G.humans)if(!h.isPlayer){h.saved=true}KT.UI.closeMeet();
   const s=G.spots.find(s=>s.type==='cabinet'&&!s.occ.length);const P=G.player;P.x=s.x;P.y=s.y+26;
   let at={x:s.x+dx,y:s.y+26};if(dx<50)for(const[ox,oy]of[[40,0],[-40,0],[0,40],[30,30],[-30,30],[0,-30],[50,10],[-50,10]]){const x=P.x+ox,y=P.y+oy;if(humanPass(Math.floor(x/24),Math.floor(y/24))&&los(x,y,P.x,P.y)){at={x,y};break}}
@@ -24,13 +24,13 @@ with sync_playwright() as p:
   r=pg.evaluate(SETUP,['tiger',90,True,False]);check('沒被看見：虎姑婆路過也不會特地來敲',not r['dead'],r)
   r=pg.evaluate(SETUP,['kuchi',90,False,False]);check('沒被看見：裂口女不會守在外面',not r['dead'] and r['state']!='camp',r)
   # an unseen hider is still checked by a searching zombie that passes close
-  r=pg.evaluate("""(()=>{KT.manual=true;KT.startGame(78);const G=KT.G;G.schedule=[];G.events=[];G.apps=[];G.scareT=1e9;G.dogs=[];for(const h of G.humans)if(!h.isPlayer)h.saved=true;KT.UI.closeMeet();
+  r=pg.evaluate("""(()=>{KT.manual=true;KT.startGame(78);const G=KT.G;G.schedule=[];G.events=[];G.apps=[];G.scareT=1e9;G.siegeAt=1e9;G.dogs=[];for(const h of G.humans)if(!h.isPlayer)h.saved=true;KT.UI.closeMeet();
     const s=G.spots.find(s=>s.type==='cabinet'&&!s.occ.length);const P=G.player;P.x=s.x;P.y=s.y+26;KT.hideIn(s);
     const m=KT.spawnMonster('jiang',{x:s.x+40,y:s.y+26});KT.UI.closeMeet();KT.setState(m,'search',3);KT.step(10);return {state:m.state}})()""")
   check('沒被看見：殭屍搜查時經過衣櫃也會停下來聽',r['state']=='listen',r)
   # the view from inside: the gap in the door closes in as a monster gets near
   if OUT:
-    pg.evaluate("""(()=>{KT.manual=true;KT.startGame(77);const G=KT.G;G.schedule=[];G.events=[];G.apps=[];G.scareT=1e9;G.dogs=[];KT.UI.closeMeet();
+    pg.evaluate("""(()=>{KT.manual=true;KT.startGame(77);const G=KT.G;G.schedule=[];G.events=[];G.apps=[];G.scareT=1e9;G.siegeAt=1e9;G.dogs=[];KT.UI.closeMeet();
       const s=G.spots.find(s=>s.type==='cabinet'&&!s.occ.length);const P=G.player;P.x=s.x;P.y=s.y+26;KT.hideIn(s);
       const m=KT.spawnMonster('tiger',{x:s.x+50,y:s.y+30});KT.UI.closeMeet();KT.setState(m,'knock');m.spot=s;KT.step(40);KT.draw()})()""")
     pg.wait_for_timeout(300);pg.screenshot(path=OUT+'/hide-knock.png')

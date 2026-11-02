@@ -2,5 +2,6 @@
 # QA 截圖是過程檔，不進版控
 rounds/qa-shots*/
 tests/out/
+tests/out-*/
 # 內部交接檔，只留本機給 AI 用
 HANDOFF.md

@@ -36,8 +36,27 @@ const APPARITIONS={
   voice:{name:'叫名字',origin:'華人民間禁忌',rule:'背後有人叫你名字的時候，不要回頭，也不要回答。',
     blurb:'走夜路時，背後有人喊你的名字。老一輩說那不是人：一回頭、一答應，魂就被叫走了。',
     rules:['聲音會從你背後傳來，持續幾秒。','不要把手電筒轉向聲音，也不要按互動回答。','違反的話，黑暗裡的東西會抓住你，所有怪談都會知道你在哪。','膽小的同伴可能會答應。'],omen:'……'},
+  hongbao:{name:'冥婚紅包',origin:'台灣民間習俗',rule:'路上的紅包不要撿。',
+    blurb:'未出嫁就過世的女孩，家人會把紅包丟在路邊，躲在一旁等。撿起來的人，就得娶她過門。',
+    rules:['一個紅包突然出現在你前面的路上。','按互動撿起來就算答應了這門親事。','好奇的小孩和愛亂跑的人會想去撿，帶著人時要繞遠一點。','繞過去，走遠了它就不見了。'],omen:'路中間，有一抹很新的紅色。'},
+  bamboo:{name:'竹篙鬼',origin:'台灣客家與閩南傳說',rule:'別從彎下來的竹子底下鑽過去。',
+    blurb:'夜裡竹林邊，會有一根竹子彎下來橫在路上。從底下鑽過去的人，竹子一彈起來，就被吊上半空。',
+    rules:['一根竹篙橫在你前面，持續一陣子。','從竹子底下穿過去，會被吊起來；一直按鍵才掙得脫。','跟著你的人也會照直走過去，要先喊他們原地等。','繞過竹子兩端，或等它自己彈回去。'],omen:'竹林那邊，有竹子被壓彎的吱嘎聲。'},
+  lords:{name:'七爺八爺夜巡',origin:'台灣民間信仰',rule:'七爺八爺經過時，蹲到路邊，別擋路。',
+    blurb:'高的白無常、矮的黑無常，夜裡出來巡境抓不乾淨的東西。擋了他們的路，連活人都會被鎖鏈拘走。',
+    rules:['兩位神將沿著大路慢慢走過去。','站在他們前面擋路，會被鎖鏈拘走；蹲在路邊就算讓路。','怪談不敢靠近他們，跟在他們後面最安全。','鎖鏈拉住你時一直按鍵，才掙得脫。'],omen:'遠處傳來鐵鍊拖地的聲音，還有一下一下的鑼。'},
+  wall:{name:'鬼打牆',origin:'華人民間傳說',rule:'走不出去時，站著別動。',
+    blurb:'明明一直往前走，卻一直回到同一個地方。老人說越走越深，要停下來、定住心神，路才會出來。',
+    rules:['走遠了會突然回到原地。','每繞回來一次，附近的怪談就會被引過來一次。','站著不動四秒，鬼打牆就散了；躲起來也算。','急著跑只會越繞越久。'],omen:'……這條路，剛剛是不是走過了？'},
+  baby:{name:'草叢嬰啼',origin:'台灣民間傳說',rule:'草叢裡的嬰兒哭聲，別過去找。',
+    blurb:'深夜的草叢裡傳來嬰兒的哭聲，聽起來就在不遠處。山裡的老人說，那不是嬰兒，是在等人過去抱它。',
+    rules:['哭聲從附近的草叢傳來，一陣一陣的。','走到哭聲旁邊，草叢裡會伸出一隻手。','心軟的同伴會忍不住過去找。','真正的村民喊救命會叫名字，嬰啼不會。'],omen:'草叢深處，有嬰兒在哭。'},
+  zhizha:{name:'紙紮人',origin:'台灣喪葬習俗',rule:'燈要照著紙紮人，別讓它們出光。',
+    blurb:'喪家燒給往生者的紙紮童男童女，畫著紅臉頰和細眼睛。沒燒乾淨的，夜裡會自己站起來。',
+    rules:['你身邊會站起幾個紙紮人。','被燈照著時一動也不動，一轉開燈就往你靠過來。','被碰到就壞了規矩；躲進衣櫃或草垛，它們碰不到你。','火燒得掉它們：丟煤油，或撐到它們自己燒起來。'],omen:'有紙張在風裡沙沙作響，可是今晚沒有風。'},
 };
-const APPARITION_ORDER=['girl','funeral','voice'];
+const APPARITION_ORDER=['girl','funeral','voice','hongbao','bamboo','lords','wall','baby','zhizha'];
+const APPARITION_CUE={girl:'girl',funeral:'suona',voice:'voice',hongbao:'chime',bamboo:'echo',lords:'bigbell',wall:'whisper',baby:'cry',zhizha:'buzz'};
 // tools act through physical effects (noise, smell, smoke, fire, paper); none of them is the answer to one monster
 const ITEMS={
   firecracker:{name:'鞭炮',kind:'聲音',desc:'丟出去炸響：所有怪談都會被聲音引過去，靠太近的會被嚇一跳。魔神仔特別怕這種聲音。'},
@@ -57,6 +76,7 @@ const MODS=[
   {id:'temple',name:'香火鼎盛',yi:'祭祀',ji:'開光',desc:'廟裡香火充足，線香結界更持久。',light:1,speed:1,incense:100,ward:1.5},
   {id:'dark',name:'斷電',yi:'安床',ji:'入宅',desc:'整村的路燈都不會亮。',light:.95,speed:1,nolamps:true},
   {id:'gate',name:'鬼門開',yi:'祭祀',ji:'諸事不宜',desc:'四個怪談，而且很早就來。',light:1,speed:1,count:4,times:[28,62,112,170]},
+  {id:'touqi',name:'頭七',yi:'祭祀',ji:'諸事不宜',desc:'老村長回家的晚上，四個怪談，而且很早就來。',light:1,speed:1,count:4,times:[28,62,112,170]},   /* the seventh night is its own: 頭七, not 鬼門開 (that is the seventh lunar month) */
 ];
 // night pacing (game seconds; the night is three 時辰 of 140 s). ~20 s of omens and sounds, first monster right after,
 // then slow to fast: monsters start slower than you, speed up and notice you faster each 時辰; the frantic dash is the last minute only
@@ -96,21 +116,28 @@ const MORE_NAMES=[
 // the seventh is 頭七, when the dead come home. times = monster arrivals, apps = rule apparitions, heat = monster speed factor,
 // first = who may open the first two nights (one with a clear answer: hold your breath, a firecracker, say 普通 — not 虎姑婆, who smells you through walls)
 const NIGHTS=[
-  {name:'頭一夜',len:240,surv:4,times:[30,110],apps:[70],heat:.78,first:['jiang','mosin','kuchi'],easy:1},
-  {name:'第二夜',len:255,surv:4,times:[28,95],reserve:1,apps:[65,150],heat:.84,first:['jiang','mosin','kuchi'],easy:1},
-  {name:'第三夜',len:270,surv:5,times:[28,85,150],apps:[70,165],heat:.9},
-  {name:'第四夜',len:285,surv:5,times:[28,80,140],reserve:1,apps:[60,150],heat:.94},
-  {name:'第五夜',len:300,surv:5,times:[26,75,130],reserve:1,apps:[55,140,215],heat:.97},
-  {name:'第六夜',len:315,surv:6,times:[26,65,115,170],apps:[60,150,225],heat:1},
-  {name:'頭七',len:330,surv:6,times:[24,55,100,150],apps:[50,135,210],heat:1.03,mod:'gate'},
+  {name:'頭一夜',mons:['jiang','mosin'],appPool:['girl'],fresh:['jiang','mosin','girl'],len:240,surv:4,times:[30,110],apps:[70],heat:.78,first:['jiang','mosin','kuchi'],easy:1},
+  {name:'第二夜',mons:['jiang','mosin','kuchi'],appPool:['girl','voice'],fresh:['kuchi','voice'],len:255,surv:4,times:[28,95],reserve:1,apps:[65,150],heat:.84,first:['jiang','mosin','kuchi'],easy:1},
+  {name:'第三夜',mons:['jiang','mosin','kuchi','tiger'],appPool:['girl','voice','funeral'],fresh:['tiger','funeral'],len:270,surv:5,times:[28,85,150],apps:[70,165],heat:.9},
+  {name:'第四夜',mons:['jiang','mosin','kuchi','tiger','suigui'],appPool:['girl','voice','funeral','hongbao','bamboo'],fresh:['suigui','hongbao','bamboo'],len:285,surv:5,times:[28,80,140],reserve:1,apps:[60,150],heat:.94},
+  {name:'第五夜',appPool:['girl','voice','funeral','hongbao','bamboo','wall','baby'],fresh:['wall','baby'],len:300,surv:5,times:[26,75,130],reserve:1,apps:[55,140,215],heat:.97},
+  {name:'第六夜',fresh:['lords','zhizha'],len:315,surv:6,times:[26,65,115,170],apps:[60,150,225],heat:1},
+  {name:'頭七',len:330,surv:6,times:[24,55,100,150],apps:[50,135,210],heat:1.03,mod:'touqi'},
 ];
+// sprinting: seconds of full speed, then you stop to gasp (loud, and you cannot hold your breath); refills slowly while walking
+const STAM={max:3.2,legs:4.6,tired:2.2,delay:1,regenWalk:.4,regenStill:.9,gaspR:8};
+// once a monster has seen you it moves at least this fast (you walk 100, 112 on roads, sprint 152): running alone does not lose it, breaking its sight does
+// sieges (grace: seconds a monster drawn off a siege leaves that villager alone, so luring it away actually saves them): from the first one at 50–62 s, a villager who has not been found yet is cornered by the nearest idle monster; reach them, or lure it off, before the time runs out
+const SIEGE={grace:8,chaseMin:125,chaseEasy:115,first:[50,62],time:40,timeEasy:48,gap:[30,45]};
+// one line on the night card for each thing the player meets for the first time
+const FRESH_TIP={jiang:'屏住呼吸，牠就找不到你。',mosin:'怕鞭炮和鐘聲，會學人喊救命。',kuchi:'問你漂不漂亮時，回答「普通」。',tiger:'聞得到小孩、敲得開衣櫃，怕火。',suigui:'只抓站在水裡的人。'};
 const RUN_LIVES=3;   // 替身紙人: a paper stand-in dies in your place and you live the night again
 // pick one at every dawn; they last the whole run. Read by newGame (light, noise, ward, breath, run, follow, stalk, charm) and the run (bag)
 const BLESSINGS={
   lung:{name:'長氣',from:'阿嬤教你憋氣的法子',desc:'屏息多撐 2 秒。'},
   soft:{name:'輕步',from:'布鞋底多縫了一層',desc:'腳步聲小四成，跑步也是。'},
   eye:{name:'夜眼',from:'換上新的手電筒電池',desc:'手電筒照得更遠、更亮。'},
-  legs:{name:'腳程',from:'村裡跑最快的少年教你換氣',desc:'跑得更快。'},
+  legs:{name:'腳程',from:'村裡跑最快的少年教你換氣',desc:'跑得更快，也撐得更久才喘。'},
   kin:{name:'人緣',from:'村民開始信任你',desc:'跟著你的人走得更快。'},
   bag:{name:'多一袋',from:'雜貨店老闆塞給你的布袋',desc:'每一夜開始多帶兩樣道具。'},
   incense:{name:'香火',from:'廟公替你多點了一爐香',desc:'線香和土地公的結界撐得更久。'},

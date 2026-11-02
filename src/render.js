@@ -7,14 +7,19 @@
    ===================================================================== */
 const PAL={paper:'#e7d9b1',ink:'#0b0d10',cin:'#b5341d',gold:'#c9993c',jade:'#6e9b6b'};
 const FONT_D='"Noto Serif TC","Songti TC",serif',FONT_B='"Noto Sans TC","PingFang TC",sans-serif';
+// text that lives in the world (speech bubbles, prompts, names, arrows) is set in a pixel font, 俐方體11號 (SIL OFL, fonts/OFL.txt),
+// at whole multiples of its 11-px grid, so it reads as part of the pixel art rather than a crisp label pasted on top
+const FONT_P='"Cubic11","Noto Sans TC",sans-serif';
+(()=>{try{if(typeof PIXEL_FONT_DATA==='undefined')return;const f=new FontFace('Cubic11',`url(${PIXEL_FONT_DATA})`);document.fonts.add(f);f.load().catch(()=>{})}catch(e){}})();
+const pxSize=big=>11*Math.max(1,Math.round((CAM.z||2)/(big?2:4)));   // whole multiples of the font's 11-px grid: a font pixel is half an art pixel (big) or a quarter (small labels)
 const cv=document.getElementById('cv');let ctx=cv.getContext('2d');
 let S=Math.min(2,window.devicePixelRatio||1),SW=960,SH=600;
 const CAM={z:2,k:3,x:0,y:0,init:false};          // k: device pixels per art pixel, z: css pixels per art pixel
 const RM=matchMedia('(prefers-reduced-motion: reduce)').matches;
 const buf=document.createElement('canvas'),bx=buf.getContext('2d');let BW=320,BH=200;
 const lightCv=document.createElement('canvas'),lctx=lightCv.getContext('2d');
-const WALLH=16,CH=10,OUT='#08070b';
-function setupView(){const tiles=SW<600?8.5:SW<1000?11:12.5;/* close in: the dark should press on you, and faces should read */const k=Math.max(2,Math.round(cv.width/(tiles*TS)));CAM.k=k;CAM.z=k/S;
+const WALLH=28,CH=10,OUT='#08070b';
+function setupView(){const tiles=SW<600?8.5:SW<1000?11:12.5;/* close in: the dark should press on you, and faces should read */let k=Math.max(2,Math.round(cv.width/(tiles*TS)));if(typeof G!=='undefined'&&G&&G.sc&&G.sc.viewH&&!G.menuMode)k=Math.max(2,Math.min(k,Math.floor(cv.height/(G.sc.viewH*TS))));CAM.k=k;CAM.z=k/S;
   BW=Math.ceil(cv.width/k);BH=Math.ceil(cv.height/k);buf.width=BW;buf.height=BH;lightCv.width=BW;lightCv.height=BH}
 const mk=(w,h)=>{const c=document.createElement('canvas');c.width=w;c.height=h;return c};
 function shadeHex(hex,k){const n=parseInt(hex.slice(1),16);let r=n>>16,g=n>>8&255,b=n&255;r=clamp(r*k,0,255)|0;g=clamp(g*k,0,255)|0;b=clamp(b*k,0,255)|0;return`rgb(${r},${g},${b})`}
@@ -86,10 +91,20 @@ function humanSprite(h,dir,f,b){   // b: idle out-breath frame
   return child?sprite(key,10,16,R=>paintChild(R,o,d,f),false,post):sprite(key,12,22,R=>paintAdult(R,o,d,f),false,post)}
 
 /* monsters — each faithful to its folklore look, four directions plus a scare frame */
-const MON_SIZE={mosin:[14,18],tiger:[16,24],kuchi:[14,28],jiang:[18,28],suigui:[14,24]};
+// painted size, then stretched: the monsters stand taller and thinner than the people (kuchi's legs, the zombie's robe,
+// Mosinna's arms and cape), so a shape at the edge of the light reads as not-a-person in a second
+const MON_SIZE={mosin:[14,22],tiger:[16,26],kuchi:[14,34],jiang:[18,31],suigui:[14,27]};
+const MON_STRETCH={mosin:[15,21,4],tiger:[16,23,2],kuchi:[26,32,6],jiang:[19,28,3],suigui:[16,24,3]};   // canvas rows [y0,y1) grow by n
+// their bodies sit a step darker than any villager; only the tells stay bright (eyes, mask, talisman, tassel, nails, teeth)
+const MON_KEEP=new Set(['#f2d04a','#ffd23a','#f2f0ea','#c8c6c0','#e6c95a','#b89a34','#b8241a','#c0392b','#d8e0c8','#e8f4ee','#f0ead8','#f2ecd8','#efe6d2','#fff','#ffffff','#eeeeee','#dddddd','#e03a2a','#d7832e','#c9993c'].map(h=>{const n=parseInt(h.length===4?h[1]+h[1]+h[2]+h[2]+h[3]+h[3]:h.slice(1),16);return n}));
+function monTone(c,k){const g=c.getContext('2d'),W=c.width,H=c.height,d=g.getImageData(0,0,W,H),a=d.data;for(let i=0;i<a.length;i+=4){if(a[i+3]<10)continue;if(MON_KEEP.has(a[i]<<16|a[i+1]<<8|a[i+2]))continue;a[i]*=k;a[i+1]*=k;a[i+2]*=k}g.putImageData(d,0,0)}
+function stretchRows(c,y0,y1,n){const g=c.getContext('2d'),W=c.width,H=c.height,src=g.getImageData(0,0,W,H),out=g.createImageData(W,H),dup=new Set();
+  for(let i=0;i<n;i++)dup.add(y0+Math.floor((i+.5)*(y1-y0)/n));   // n evenly spaced rows inside the band are drawn twice; everything below slides down
+  const rows=[];for(let y=0;y<H&&rows.length<H;y++){rows.push(y);if(dup.has(y))rows.push(y)}
+  for(let y=0;y<H;y++){const sy=rows[y];out.data.set(src.data.subarray(sy*W*4,(sy+1)*W*4),y*W*4)}g.putImageData(out,0,0)}
 const MPAINT={
   mosin(R,dir,f,scare){ // small red-faced child-like figure, grass-and-straw hair, straw cape, long arms
-    const G1='#2f5226',G2='#4a7a32',G3='#6a9a3e',F='#b8352a',FD='#8a2219',E='#0b0b0b',Y='#f2d04a',C='#6e5e33',CD='#4e4224',L='#7a2f22',LD='#5a2018',st=f===1?1:f===3?2:0;
+    const G1='#3a3420',G2='#5a4e2c',G3='#7a6a3a',F='#9a2a22',FD='#6a1a14',E='#0b0b0b',Y='#f2d04a',C='#6e5e33',CD='#4e4224',L='#7a2f22',LD='#5a2018',st=f===1?1:f===3?2:0;
     if(scare){R(0,1,2,10,L);R(12,1,2,10,L);R(0,0,1,1,LD);R(1,0,1,1,LD);R(12,0,1,1,LD);R(13,0,1,1,LD);
       R(1,0,12,4,G1);R(0,1,1,3,G2);R(13,1,1,3,G2);R(3,-1,1,2,G3);R(7,-1,1,2,G2);R(10,-1,1,2,G3);
       R(2,4,10,7,F);R(11,4,1,7,FD);R(3,5,3,2,Y);R(8,5,3,2,Y);R(4,5,1,2,E);R(9,5,1,2,E);R(3,8,8,3,'#2a0505');[3,5,7,9].forEach(x=>R(x,8,1,1,'#f2ecd8'));[4,6,8].forEach(x=>R(x,10,1,1,'#f2ecd8'));
@@ -129,7 +144,7 @@ const MPAINT={
     else{R(1,17,2,1,SK);R(13,17,2,1,SK)}
     R(4,19,3,3,PA);R(9,19,3,3,PA);R(7,19,2,1,PA);R(4,22-lift,3,1,SH);R(9,22-lift2,3,1,SH)},
   kuchi(R,dir,f,scare){ // tall woman, long black hair, white surgical mask, red coat, heels
-    const H='#141018',HL='#2e2836',S='#ead9c6',SD='#c4ae96',M='#f2f0ea',MD='#c8c6c0',C='#9b1d1d',CD='#6a1212',CL='#c23a2c',B='#3a0a0a',BK='#c9993c',L='#d8c8b4',HE='#0e0e10',st=f===1?1:f===3?2:0;
+    const H='#141018',HL='#2e2836',S='#ead9c6',SD='#c4ae96',M='#f2f0ea',MD='#c8c6c0',C='#6a1414',CD='#430c0c',CL='#8a2420',B='#2a0606',BK='#c9993c',L='#d8c8b4',HE='#0e0e10',st=f===1?1:f===3?2:0;
     if(dir==='u'){R(3,0,8,4,H);R(2,3,10,16,H);R(5,1,2,1,HL);R(4,5,1,10,HL);R(9,6,1,9,HL);R(3,18,8,4,C);R(2,20,10,2,CD);R(1,12,1,7,C);R(12,12,1,7,CD);
       R(5,22,1,4-(st===1?1:0),L);R(8,22,1,4-(st===2?1:0),L);R(4,26-(st===1?1:0),2,1,HE);R(8,26-(st===2?1:0),2,1,HE);return}
     if(dir==='r'&&!scare){R(4,0,7,4,H);R(3,3,4,16,H);R(4,6,1,10,HL);R(7,3,4,8,S);R(7,3,4,1,H);R(9,6,1,1,'#1a0e10');R(8,8,4,3,M);R(8,10,4,1,MD);R(11,9,1,1,MD);
@@ -145,7 +160,7 @@ const MPAINT={
     R(2,12+(st===1?-1:0),1,8,C);if(!scare)R(11,12+(st===2?-1:0),1,8,CD);R(2,20+(st===1?-1:0),1,1,S);if(!scare)R(11,20+(st===2?-1:0),1,1,S);
     R(5,22,1,4-(st===1?1:0),L);R(8,22,1,4-(st===2?1:0),L);R(4,26-(st===1?1:0),2,1,HE);R(8,26-(st===2?1:0),2,1,HE);R(5,27-(st===1?1:0),1,1,HE);R(8,27-(st===2?1:0),1,1,HE)},
   jiang(R,dir,f,scare,sealed){ // Qing official robe with a 補子 badge, official hat with red tassel, yellow talisman over the face, arms held out
-    const HB='#15151b',HL='#2c2c38',FI='#c0392b',TA='#8f2318',TL='#e6c95a',TD='#b89a34',INK='#b8241a',SK='#9fb39a',SD='#768b72',RB='#1c2536',RD='#121827',RL='#2f3c58',BG='#c99a3c',BD='#8a6420',BI='#e8e0c8',SO='#d8d4cc',BO='#101014',NA='#d8e0c8',air=f===1;
+    const HB='#15151b',HL='#2c2c38',FI='#c0392b',TA='#8f2318',TL='#e6c95a',TD='#b89a34',INK='#b8241a',SK='#9fb39a',SD='#768b72',RB='#1c2536',RD='#121827',RL='#2f3c58',BG='#6a5020',BD='#4a3816',BI='#8a7e60',SO='#d8d4cc',BO='#101014',NA='#d8e0c8',air=f===1;
     const talis=(x,y)=>{R(x,y,4,10,TL);R(x+3,y,1,10,TD);R(x+1,y+1,2,1,INK);R(x+1,y+3,1,2,INK);R(x+2,y+4,1,1,INK);R(x,y+6,3,1,INK);R(x+1,y+7,1,2,INK)};
     if(dir==='u'){R(8,0,2,1,FI);R(5,1,8,2,TA);R(6,3,6,1,HB);R(3,4,12,2,HB);R(3,4,12,1,HL);R(5,6,8,6,'#14141a');R(8,6,2,11,'#0a0a0e');R(3,13,12,11,RB);R(3,13,12,1,RL);R(6,16,6,5,BG);R(6,16,6,1,BD);R(8,17,2,2,BI);
       R(1,13,2,3,RB);R(15,13,2,3,RB);R(2,23,14,2,RD);R(5,25,3,2,BO);R(10,25,3,2,BO);R(5,27,3,1,SO);R(10,27,3,1,SO);return}
@@ -174,7 +189,8 @@ const MPAINT={
 };
 function monSprite(type,dir,f,mode,breath){ // mode: '' | 'scare' | 'reveal' | 'sealed'; breath: idle out-breath frame
   const[w,h]=MON_SIZE[type],d=dir==='l'?'r':dir,ff=type==='jiang'?(f%2):f;const key=type+d+ff+mode+(breath?'b':'');
-  return sprite(key,w,h+3,(R)=>{const R2=(x,y,ww,hh,c)=>R(x,y+3,ww,hh,c);MPAINT[type](R2,d,ff,mode==='scare',type==='tiger'?mode==='reveal':undefined)},false,c=>{if(breath)breathe(c);if(mode==='tilt')tiltHead(c);if(mode==='bow'){breathe(c);breathe(c)}shadePass(c)})}
+  const st=MON_STRETCH[type];
+  return sprite(key,w,h+3,(R)=>{const R2=(x,y,ww,hh,c)=>R(x,y+3,ww,hh,c);MPAINT[type](R2,d,ff,mode==='scare',type==='tiger'?mode==='reveal':undefined)},false,c=>{if(st)stretchRows(c,st[0],st[1],st[2]);monTone(c,.8);if(breath)breathe(c);if(mode==='tilt')tiltHead(c);if(mode==='bow'){breathe(c);breathe(c)}shadePass(c)})}
 // 'tilt': the head leans one pixel over (top rows sheared), the 魔神仔's curious, wrong little tilt while it watches you
 function tiltHead(c){const g=c.getContext('2d'),W=c.width,H=c.height,a=Math.round(H*.2),b=Math.round(H*.42),top=g.getImageData(0,0,W,a),mid=g.getImageData(0,a,W,b-a);g.clearRect(0,0,W,b);g.putImageData(top,2,0);g.putImageData(mid,1,a)}
 
@@ -232,6 +248,9 @@ function headPx(k,o){const{E,L}=k,cx=o.cx,cy=o.cy,S=o.skin;
   L(cx,cy-4,cx+(o.nx||.6),cy+6,1.6,2.6,4.4,null,'add');E(cx+(o.nx||.6),cy+7,3.2,2,3,null,'add');E(cx-1.4+(o.nx||0),cy+8.2,1,.8,2.4,null,'sub');E(cx+2.2+(o.nx||0),cy+8.2,1,.8,2.4,null,'sub');
   const mx=cx+(o.mx||0),my=cy+13;if(o.mo>0)E(mx,my+o.mo*.4,o.mw,o.mo,9,o.mouthMat||'mouth','sub');else if(o.mo===0){L(mx-o.mw,my+(o.ml||0),mx+o.mw,my-(o.ml||0),.9,.9,1.6,o.lipMat||'lip','sub');E(mx,my+1.6,o.mw*.6,1.2,1.4,o.lipMat||'lip','add')}
   if(o.neck)E(cx,cy+o.h+8,o.w*.66,12,8,S,'base',-6)}
+// a row of teeth that is not a zipper: widths 1–2, lengths 2–4, gaps 0–2, about one in seven missing or broken, gum shadow above
+function teethRow(D,x0,x1,y,down,seed,col){col=col||'#e6dcbc';let x=x0,i=0;while(x<=x1){const r=hash(seed,i,71),w=r<.35?2:1,len=2+Math.floor(hash(seed,i,72)*3),gap=hash(seed,i,73)<.3?0:hash(seed,i,73)<.8?1:2;
+  if(r>.86){D(x,down?y:y-1,'#5a4a32',w,1)}else{D(x,down?y-1:y+1,'#3a0808',w,1);D(x,down?y:y-len+1,col,w,hash(seed,i,74)<.12?Math.max(1,len-2):len);if(len>2)D(x,down?y+len-1:y-len+1,'#bcae88',w,1)}x+=w+gap;i++}}
 function eyePx(k,x,y,o){const{D}=k; // o: iris colour, pupil size, veins, glint, look offset
   const lx=x+(o.lx||0);if(o.iris){D(lx-1,y-1,o.iris,3,o.ih||2);D(lx-1,y+(o.ih||2)-1,o.iris,3,1)}if(o.pupil)D(lx,y,o.pupil,o.ps||1,o.ps||1);if(o.ring)D(lx-1,y-1,o.ring,1,1);
   (o.veins||[]).forEach(([dx,dy])=>D(x+dx,y+dy,'#8a2a26'));if(o.glint)D(lx+(o.gx||1),y-1,o.glint)}
@@ -262,7 +281,7 @@ const CPAINT={
     eyePx(k,40,27,{iris:'#ffcc28',ih:3,pupil:'#000',ps:1,glint:'#ffffff',gx:-1});D(40,26,'#000');D(40,28,'#000');D(38,26,'#ffe680');D(42,28,'#c88a10');
     if(f===0){D(34,42,'#6a2420');D(35,42,'#3a0a0a');D(36,41,'#3a0a0a')}
     const T='#e6dcbc';if(f===1){D(32,43,T);D(34,43,T);D(36,44,T);D(38,42,T,1,3);D(30,46,T)}
-    if(f===2){[26,28,30,32,34,36,38,40,42].forEach((x,i)=>D(x,38+(i===2||i===6?0:1),T,1,i===2||i===6?4:2));D(28,38,T,1,6);D(43,39,T,1,6);[29,33,37,41].forEach(x=>D(x,51,T,1,2));D(36,52,'#7a1a18',2,2);
+    if(f===2){teethRow(D,26,42,38,true,11,T);D(28,38,T,1,6);D(43,39,T,1,6);[29,33,37,41].forEach(x=>D(x,51,T,1,2));D(36,52,'#7a1a18',2,2);
       [[45,40],[47,44],[44,46]].forEach(([x,y])=>D(x,y,'#140808'));handPx(k,52,56,-2.2,11,'fur','nail',.3);handPx(k,10,58,-1.1,9,'skinOld','nail',.18)}},
   // 裂口女: a real woman's face, wet black hair across it; mask → slit → mouth torn to both ears, scissors
   kuchi(k,f){const{E,L,D,tilt}=k;tilt(.09,32,30);
@@ -275,13 +294,13 @@ const CPAINT={
     for(const[x0,y0,x1,y1]of[[22,12,30,40],[19,14,17,50],[44,12,47,52],[25,14,33,30],[41,16,44,40]])L(x0,y0,x1,y1,.7,.5,1.5,'hairBlack','base',18);   // wet strands across the face
     eyePx(k,25,28,{pupil:'#1a0505',glint:'#fff',veins:[[-2,0],[-3,1],[2,-1],[2,1]]});eyePx(k,39,28,{pupil:'#1a0505',lx:-1,veins:[[2,0],[3,1]]});
     if(f===1){[[16,37],[17,38],[47,37],[46,38]].forEach(([x,y])=>D(x,y,'#7a0808'))}
-    if(f===2){const T='#e6dcbc';for(let x=22;x<43;x+=2){D(x,39+(Math.abs(x-32)>7?1:0),T,1,2);D(x+1,47-(Math.abs(x-32)>7?1:0),T,1,2)}D(14,37,'#9c2222',1,4);D(50,37,'#9c2222',1,4);D(13,41,'#5a0808',1,3);D(51,40,'#5a0808',1,4)}
+    if(f===2){const T='#e6dcbc';teethRow(D,22,42,39,true,23,T);teethRow(D,23,42,47,false,29,T);D(14,37,'#9c2222',1,4);D(50,37,'#9c2222',1,4);D(13,41,'#5a0808',1,3);D(51,40,'#5a0808',1,4)}
     if(f>=1){const big=f===2,px=big?50:54,py=big?54:58,len=big?36:18;L(px,py,px-len*.42,py-len,2,.6,2,'steel','base',30);L(px+1,py,px+len*.2,py-len,2,.6,2,'steel','base',31);
       E(px-4,py+5,3.4,3.4,3,'steel','base',29);E(px-4,py+5,1.6,1.6,4,null,'cut');E(px+4,py+5,3.4,3.4,3,'steel','base',29);E(px+4,py+5,1.6,1.6,4,null,'cut');handPx(k,px+1,py+2,-1.5,6,'skinPale','nail',.14)}},
   // 殭屍: gaunt grey-green face under a Qing 暖帽, a proper 敕令 talisman hanging from the brim; it lifts, then the fangs
   jiang(k,f){const{E,L,D,S,tilt}=k;tilt(-.05,32,30);
     E(32,63,30,9,8,'robe','base',-4);L(32,54,26,64,1,1,2,'gold','base',5);E(32,60,8,4,3,'gold','base',4);
-    headPx(k,{cx:32,cy:31,w:15,h:20,skin:'skinCorpse',eL:f===2?.9:.2,eR:f===2?1.1:.2,cheek:4,hollow:4,sock:8,mo:[0,2,6][f],mw:[5,5,7][f],neck:1,jw:9});
+    headPx(k,{cx:32,cy:31,w:15,h:20,skin:'skinCorpse',eL:f===2?.9:.2,eR:f===2?1.1:.2,eRx:39,eRy:31,cheek:4,hollow:4,sock:8,mo:[0,2,6][f],mw:[5,5,7][f],mx:-2,neck:1,jw:9});E(24,40,4,5,3,null,'sub');
     [[22,40,24,46],[42,38,40,46],[27,20,30,21]].forEach(([a,b,c,d])=>L(a,b,c,d,.6,.6,1.2,null,'sub'));
     E(32,9,24,4,4,'hatBlack','base',18);L(8,11,56,11,1.2,1.2,1,'hatBlack','add');L(9,12.4,55,12.4,.6,.6,.4,'gold','add');E(32,5,15,5,6,'tassel','base',20);for(let x=19;x<46;x+=2)L(x,1,x+(x-32)*.15,8,.7,.6,1.5,'tassel','base',22);E(32,0,2.4,2,4,'gold','base',27);
     if(f>=1){eyePx(k,25,30,{iris:'#c02a1a',ih:2,pupil:'#000',glint:'#ffc0a0'});eyePx(k,39,30,{iris:'#c02a1a',ih:2,pupil:'#000'})}else{D(22,30,'#1a2a1e',6,1);D(36,30,'#1a2a1e',6,1)}
@@ -298,7 +317,7 @@ const CPAINT={
     [[20,20,28,22],[36,22,44,20],[22,36,26,40],[42,36,38,40],[30,18,34,18],[18,26,20,32],[46,26,44,32]].forEach(([a,b,c,d])=>L(a,b,c,d,.6,.6,1.6,null,'sub'));
     E(32,14,20,8,6,'grass','base',13);for(let i=0;i<16;i++){const x=12+i*2.6,h=8+((i*7)%6);L(x,16,x+((i*5)%7)-3,16-h,1.2,.4,2,i%4?'grass':'straw','base',16)}
     eyePx(k,25,28,{iris:'#e8d040',ih:3,pupil:'#000',glint:'#ffffe0',gx:-1});eyePx(k,40,29,{iris:'#d8c030',ih:2,pupil:'#000',glint:'#ffffe0'});
-    const T='#e6dcbc';for(let x=32-gw+2;x<32+gw-1;x+=2){const y0=Math.round(gy(x)),y1=Math.round(gy(x)+go*(1-((x-32)/gw)**2));D(x,y0,T,1,f?2:1);if(f)D(x+1,y1-1,T,1,2)}
+    const T='#e6dcbc';for(let x=32-gw+2,i=0;x<32+gw-1;i++){const h1=hash(37,i,71),w=h1<.3?2:1,y0=Math.round(gy(x)),y1=Math.round(gy(x)+go*(1-((x-32)/gw)**2));if(h1<.88){D(x,y0,T,w,f?1+Math.floor(hash(37,i,72)*3):1);if(f&&hash(37,i,73)<.7)D(x+1,y1-1-Math.floor(hash(37,i,74)*2),T,1,2)}x+=w+(hash(37,i,75)<.4?0:1)}
     if(f===2){L(6,64,10,40,1.6,1.2,3,'skinRed','base',24);L(58,64,54,40,1.6,1.2,3,'skinRed','base',24);[[10,40,-1.9],[54,40,-1.3]].forEach(([x,y,a])=>handPx(k,x,y,a,12,'skinRed','nail',.32))}},
   // 水鬼: a bloated drowned face, milky eyes, hair plastered across it; it parts, then the hands come up out of the water
   suigui(k,f){const{E,L,D,tilt}=k;tilt(-.18,32,30);
@@ -311,9 +330,9 @@ const CPAINT={
     if(f===2){[[8,62,-1.2],[56,62,-1.95]].forEach(([x,y,a])=>handPx(k,x,y,a,13,'skinDrown','nail',.26));D(12,44,'#9ad0dc',1,2);D(52,46,'#9ad0dc',1,2)}},
   // 紅衣小女孩: a very still child; black bob over half the face, one eye showing
   girl(k,f){const{E,L,D}=k;
-    E(32,30,22,28,6,'hairBlack','base',-6);E(32,62,22,8,6,'dress','base',-2);E(26,57,6,3,2,'collar','base',2);E(38,57,6,3,2,'collar','base',2);
+    E(32,22,21,15,6,'hairBlack','base',-6);L(17,22,17,49,6,6,6,'hairBlack','base',-6);L(47,22,47,49,6,6,6,'hairBlack','base',-6);L(12,49,52,49,1,1,4,'hairBlack','base',-6);E(32,62,22,8,6,'dress','base',-2);E(26,57,6,3,2,'collar','base',2);E(38,57,6,3,2,'collar','base',2);
     headPx(k,{cx:32,cy:31,w:13,h:16,skin:'skinChild',lipMat:'mouthDark',mouthMat:'mouthDark',eL:f===2?1.3:1.05,eR:1,cheek:2,sock:4.5,mo:f===2?2:0,mw:f===0?3:5,ml:f===1?-1:0,neck:0,jw:9});E(32,58,7,6,6,'skinChild','base',-3);
-    E(32,14,16,8,6,'hairBlack','base',15);for(let x=17;x<48;x+=2)L(x,10,x,[24,22,23][f]+(x%3),1,.8,2,'hairBlack','base',16);
+    E(32,14,16,8,6,'hairBlack','base',15);for(let x=17;x<48;x+=2){if(x>=24&&x<=28)continue;L(x,10,x,23,1,1,2,'hairBlack','base',16)}L(17,23,47,23,.7,.7,1.4,'hairBlack','base',16);
     E(41,32,10,18,6,'hairBlack','base',16);for(let i=0;i<6;i++)L(34+i*2,14,33+i*2.4,48,.8,.6,1.4,'hairBlack','base',17);   // the bob falls over her right half
     eyePx(k,26,29,f===2?{pupil:'#000',ps:2,iris:'#1a1212',ih:3,glint:'#f4f4f4'}:{iris:'#2a1c18',ih:2,pupil:'#000',glint:'#f4f4f4'})},
   // 夜半送葬: a mourner under a peaked hemp hood; the face is shadow, only a pale chin and mouth in the torchlight
@@ -321,25 +340,47 @@ const CPAINT={
     E(32,64,31,12,8,'hemp','base',-4);E(32,36,21,28,12,'hemp','base',0);L(32,2,32,18,1,9,8,'hemp','base',2);L(30,4,24,40,.6,.6,1.2,null,'sub');L(36,6,44,44,.6,.6,1.2,null,'sub');L(22,20,18,60,.5,.5,1,null,'sub');L(43,22,47,60,.5,.5,1,null,'sub');
     L(13,22,51,20,1.3,1.3,2.5,'rope','add');L(14,22,12,34,.9,.7,2,'rope','base',14);
     E(32,38,12,17,16,'shadow','sub');E(32,36,11,16,0,'shadow','paint');
-    E(32,46,10,9,7,'skinPale','base',3);E(26,44,3,3,2,null,'sub');E(38,44,3,3,2,null,'sub');E(32,48,8,6,6,'skinPale','base',4);E(32,46,5,1.2+[0,2,4][f],5,'mouth','sub');E(31,52,4,2,2,null,'add');E(33,40,2,1.6,3,'skinPale','base',5);L(26,50,28,53,.5,.5,1,null,'sub');
+    E(32,46,10,9,7,'skinPale','base',3);E(26,44,3,3,2,null,'sub');E(38,44,3,3,2,null,'sub');E(32,48,8,6,6,'skinPale','base',4);E(32,51,7,.8+[0,1.2,2.4][f],5,'mouthDark','sub');L(27,50,29,52,.4,.4,1,'hemp','paint');L(35,52,37,50,.4,.4,1,'hemp','paint');E(31,52,4,2,2,null,'add');E(33,40,2,1.6,3,'skinPale','base',5);L(26,50,28,53,.5,.5,1,null,'sub');
     L(12,34,10,46,.7,.5,2,'rope','base',14);L(14,34,15,44,.7,.5,2,'rope','base',14);E(13,33,2.4,2,2,'rope','base',15);
     if(f>0){D(29,45,'#b8b0a8');D(36,46,'#b8b0a8');[30,32,34].forEach(x=>D(x,45+f,'#9a9280'))}
     const eg=['#3a3a3a','#8a8680','#f0e8d8'][f];D(27,31,eg);D(37,32,eg);if(f===2){D(26,31,'#a8a090');D(37,31,'#ffffff')}},
+  // 冥婚紅包: the bride under a red veil, rouge too bright, one eye showing
+  bride(k,f){const{E,L,D}=k;E(32,62,26,10,8,'dress','base',-2);L(12,18,8,62,2,9,6,'dress','base',-4);L(52,18,56,62,2,9,6,'dress','base',-4);   // the veil falls behind her shoulders
+    headPx(k,{cx:32,cy:34,w:13,h:17,skin:'skinPale',lipMat:'dress',mouthMat:'mouthDark',eL:f===2?1.25:.95,eR:f===2?1.25:.95,cheek:2,sock:5,mo:f===2?3:0,mw:f===0?3:4,ml:f===1?-1:0,neck:0,jw:9});
+    E(32,15,20,9,8,'dress','base',12);L(13,16,51,16,1.5,1.5,2,'gold','add');E(32,10,6,4,5,'gold','base',16);for(let x=17;x<49;x+=4)L(x,22,x,26+(x%8?0:3),.6,.6,1.2,'gold','base',14);   // phoenix crown and a fringe of gold beads, the face left bare
+    E(24,41,3.5,2.2,1,'dress','paint');E(40,41,3.5,2.2,1,'dress','paint');
+    eyePx(k,25,33,f===2?{pupil:'#000',ps:2,iris:'#2a1010',ih:3,glint:'#fff'}:{iris:'#3a1a14',ih:2,pupil:'#000',glint:'#f4f4f4'});eyePx(k,39,33,f===2?{pupil:'#000',ps:2,iris:'#2a1010',ih:3,glint:'#fff'}:{iris:'#3a1a14',ih:2,pupil:'#000',glint:'#f4f4f4',lx:1})},
+  // 紙紮人: a flat paper face, painted cheeks and slit eyes; nothing under the paint
+  zhizha(k,f){const{E,L,D}=k;E(32,60,24,10,6,'dress','base',-2);E(32,32,16,18,5,'collar','base',0);E(32,13,13,7,6,'hairBlack','base',6);E(32,8,5,4,5,'hairBlack','base',7);
+    E(24,38,4,3,1,'dress','paint');E(40,38,4,3,1,'dress','paint');L(22,30,28,31,.8,.8,1,'hairBlack','paint');L(36,31,42,30,.8,.8,1,'hairBlack','paint');
+    E(32,44,f===2?4:2,f===2?3:1.2,f===2?6:1,f===2?'mouth':'dress',f===2?'sub':'paint');L(18,22,46,24,.5,.5,1,null,'sub');L(20,48,44,50,.4,.4,.8,null,'sub');
+    if(f>0){D(25,30,'#000',2,1);D(37,30,'#000',2,1)}if(f===2){D(25,30,'#fff');D(38,30,'#fff')}},
+  // 七爺: the tall white one, hat crown, the long tongue
+  qiye(k,f){const{E,L,D}=k;E(32,64,26,10,8,'collar','base',-2);E(32,8,15,10,8,'collar','base',10);L(18,2,46,2,1.2,1.2,2,'collar','base',11);
+    headPx(k,{cx:32,cy:30,w:13,h:18,skin:'skinPale',eL:.5,eR:.5,sock:8,cheek:1,hollow:3,mo:[3,5,7][f],mw:4,neck:1,jw:9});
+    L(32,44,32,[52,58,63][f],2.4,2.8,4,'gum','base',20);eyePx(k,25,29,{pupil:'#000',glint:'#ddd'});eyePx(k,39,29,{pupil:'#000',glint:'#ddd'});
+    D(28,6,'#1a1816',8,1);D(30,8,'#1a1816',4,1)},
+  // 草叢嬰啼: something wearing a baby's face, eyes too large and black
+  babyface(k,f){const{E,L,D}=k;E(32,58,26,12,8,'hemp','base',-2);E(32,32,20,20,10,'skinChild','base',0);E(32,22,22,12,6,'hemp','base',8);
+    E(24,32,4.5,[4,5,6][f],6,'mouthDark','sub');E(40,32,4.5,[4,5,6][f],6,'mouthDark','sub');E(32,44,[2,4,7][f],[1.2,3,6][f],6,'mouth','sub');E(25,39,3,2,2,null,'add');E(39,39,3,2,2,null,'add');
+    if(f>0){D(24,31,'#e8e0d0');D(40,31,'#e8e0d0')}},
   // 叫名字: the face that was right behind you
   voice(k,f){const{E,L,D,tilt}=k;tilt(.34,32,30);E(32,30,22,30,6,'hairBlack','base',-6);for(let i=0;i<7;i++)L(38+i*2,6,36+i*3,64,1,1.6,3,'hairBlack','base',-6);
     headPx(k,{cx:32,cy:30,w:13,h:[20,22,25][f],skin:'skinPale',eL:.4,eR:0,sock:9,mo:[2,6,12][f],mw:[2,3,3.5][f],mouthMat:'mouthDark',neck:0,jw:8});
     for(let i=0;i<3;i++)L(38+i*2.2,8,40+i*3.4,50,.7,.5,1.6,'hairBlack','base',18);eyePx(k,25,29,{pupil:'#f4f0e8',glint:'#fff'});
     if(f===2)handPx(k,12,60,-1.9,10,'skinPale','nail',.2)},
 };
-const closeSprite=(type,f)=>{const t=CPAINT[type]?type:type==='funeral'?'mourn':'voice',key='cu2'+t+f;let c=SPR.get(key);if(!c){c=faceBuild(CPAINT[t],f);SPR.set(key,c)}return c};
+const CU_MAP={funeral:'mourn',hongbao:'bride',lords:'qiye',bamboo:'voice',wall:'voice',baby:'babyface'};
+const closeSprite=(type,f)=>{const t=CPAINT[type]?type:CU_MAP[type]&&CPAINT[CU_MAP[type]]?CU_MAP[type]:'voice',key='cu2'+t+f;let c=SPR.get(key);if(!c){c=faceBuild(CPAINT[t],f);SPR.set(key,c)}return c};
 // build all close-ups in idle slices after load so the capture frame never stalls on modelling
 (function warmCloseups(){const q=[];for(const t of Object.keys(CPAINT))for(let f=0;f<3;f++)q.push([t,f]);const tick=()=>{const it=q.shift();if(!it)return;closeSprite(it[0],it[1]);setTimeout(tick,30)};setTimeout(tick,1500)})();
 
 /* ---------------- the lunge: the monster's own close-up rushes from where it stands into the lens ---------------- */
 let CLOSEUP=(()=>{try{return localStorage.getItem('kaidan-closeup')!=='0'}catch(e){return true}})();   // pause menu: 驚嚇特寫 on/off
 let LUNGE_FREEZE=null;                                                                                    // test hook: KT.freezeLunge(seconds)
-function lungeOrigin(type){const P=G.player,A=G.apparition;let x=P.x+Math.cos(P.face)*18,y=P.y-14,h=24,bd=1e9;
+function lungeOrigin(type){if(G.yelu){const o=YL.lungeOrigin(type);if(o)return o}const P=G.player,A=G.apparition;let x=P.x+Math.cos(P.face)*18,y=P.y-14,h=24,bd=1e9;
   for(const m of G.monsters)if(m.type===type&&!m.hidden){const d=dist(m,P);if(d<bd){bd=d;x=m.x;y=m.y-MON_SIZE[type][1]*.62;h=MON_SIZE[type][1]}}
+  if(A&&A.type===type&&type!=='funeral'&&type!=='girl'&&A.x!=null){x=A.type==='zhizha'?(A.dolls.slice().sort((a,b)=>dist(a,P)-dist(b,P))[0]||P).x:A.x;y=(A.type==='zhizha'?(A.dolls.slice().sort((a,b)=>dist(a,P)-dist(b,P))[0]||P).y:A.y)-14;h=20}
   if(A&&A.type===type){if(type==='funeral'){for(let i=0;i<A.members;i++){const p=apPos(A,i),d=Math.hypot(p.x-P.x,p.y-P.y);if(d<bd){bd=d;x=p.x;y=p.y-14;h=22}}}else if(type==='girl'){x=A.x;y=A.y-10;h=17}}
   return[(x-CAM.x)*CAM.k,(y-CAM.y)*CAM.k,h*CAM.k]}
 // after the hit the darkness behind the face pulses with the monster's colour: blood for most, cold for the drowned, corpse-green for the 殭屍
@@ -357,16 +398,17 @@ function drawLunge(type,age,o,short){const T=short?[.05,.24,.46,.72]:[.1,.4,.7,.
   ctx.save();ctx.setTransform(1,0,0,1,0,0);ctx.imageSmoothingEnabled=false;ctx.globalAlpha=short&&age>T[2]?Math.max(0,1-(age-T[2])/(T[3]-T[2])):1;
   ctx.fillStyle=`rgba(3,0,0,${age<T[0]?age/T[0]*.6:Math.min(.97,.6+(age-T[0])/(T[1]-T[0])*.37)})`;ctx.fillRect(0,0,cw,ch);
   const fl=age>=T[1]-.02&&age<T[1]+.1?1-Math.max(0,age-T[1])/.1:0,bc=LUNGE_BACK[type]||[70,4,2];
-  if(fl>0){if(RM){ctx.fillStyle=`rgba(${bc.join(',')},${fl})`;ctx.fillRect(0,0,cw,ch)}else{const a0=ctx.globalAlpha;ctx.globalAlpha=a0*fl;ctx.imageSmoothingEnabled=true;ctx.drawImage(L.back,0,0,cw,ch);ctx.globalAlpha=a0;ctx.imageSmoothingEnabled=false}}/* the flash lands behind the face: a silhouette pop */
+  if(fl>0&&RM){ctx.fillStyle=`rgba(${bc.join(',')},${fl})`;ctx.fillRect(0,0,cw,ch)}/* the flash itself is drawn round the face's own outline, below */
   else if(age>=T[1]){const q=(age-T[1])/(T[3]-T[1]),p=RM?.75:.6+.4*Math.sin((age-T[1])*Math.PI*2*2.2);/* ≤2.2 Hz, and none under reduced motion */ctx.fillStyle=`rgba(${bc.join(',')},${Math.max(0,(1-q)*.9*p)})`;ctx.fillRect(0,0,cw,ch)}
-  const f=age<T[0]+(T[1]-T[0])*.45?0:age<T[1]-.03?1:2,spr=closeSprite(type,f),sw=spr.width,k1=Math.max(4,Math.round(Math.min(cw*1.35,ch*1.04)/sw*(short?.82:1))),k0=Math.max(1,Math.min(k1,Math.round(o[2]*1.4/sw)));
+  const f=age<T[0]+(T[1]-T[0])*.45?0:age<T[1]-.03?1:2,spr=closeSprite(type,f),sw=spr.width,k1=Math.max(4,Math.round(Math.min(cw*1.6,ch*(RM?1:1.25))/sw*(short?.82:1))),k0=Math.max(1,Math.min(k1,Math.round(CAM.k||4)));
   const tx=cw/2,ty=ch*.5;let k,cx,cy;
   if(age<T[0]){k=k0;cx=o[0]+(RM?0:(Math.random()<.5?-1:1)*k0);cy=o[1]}
   else if(age<T[1]){const p=(age-T[0])/(T[1]-T[0]),e=p*p*p,pp=1-(1-p)*(1-p);k=Math.max(k0,Math.round(k0*Math.pow(k1/k0,e)));cx=o[0]+(tx-o[0])*pp;cy=o[1]+(ty-o[1])*pp}   // accelerating at the lens
   else{const q=(age-T[1])/(T[3]-T[1]);k=k1+Math.round(k1*.07*Math.max(0,1-q*4));cx=tx;cy=ty;
     if(!RM){const a=Math.pow(1-Math.min(1,(age-T[1])/(T[2]-T[1]+.1)),2)*k*1.4;cx+=Math.round((Math.random()-.5)*2*a);cy+=Math.round((Math.random()-.5)*2*a)}}
-  const w=sw*k,h=spr.height*k;ctx.drawImage(spr,Math.round(cx-w/2),Math.round(cy-h/2),w,h);
-  ctx.imageSmoothingEnabled=true;ctx.drawImage(L.vig,0,0,cw,ch);if(fl>0&&!RM){ctx.globalAlpha*=fl;ctx.drawImage(L.ring,0,0,cw,ch)}ctx.globalAlpha=short&&age>T[2]?Math.max(0,1-(age-T[2])/(T[3]-T[2])):1;
+  const w=sw*k,h=spr.height*k;if(fl>0&&!RM){const a0=ctx.globalAlpha,g=Math.round(k*3);ctx.globalAlpha=a0*fl;ctx.drawImage(darkShape(spr,'#f4efe6'),Math.round(cx-w/2)-g,Math.round(cy-h/2)-g,w+g*2,h+g*2);ctx.globalAlpha=a0}   // the hit: a white halo the shape of the face, two frames
+  ctx.drawImage(spr,Math.round(cx-w/2),Math.round(cy-h/2),w,h);
+  ctx.imageSmoothingEnabled=true;ctx.drawImage(L.vig,0,0,cw,ch);ctx.globalAlpha=short&&age>T[2]?Math.max(0,1-(age-T[2])/(T[3]-T[2])):1;
   if(!short&&age>T[2]){ctx.fillStyle=`rgba(2,0,0,${Math.min(1,(age-T[2])/(T[3]-T[2]))*.94})`;ctx.fillRect(0,0,cw,ch)}
   ctx.restore()}
 // close-ups switched off: a short red fade instead
@@ -397,12 +439,16 @@ function cabinetSprite(open){return sprite('cab'+(open?1:0),20,28,R=>{R(0,0,20,4
   if(open){R(2,6,16,20,'#0c0705');R(-1,6,3,20,'#6a4228')}else{R(9,6,1,20,'#2a180c');R(2,7,6,8,'#664026');R(11,7,6,8,'#664026');R(2,17,6,8,'#664026');R(11,17,6,8,'#664026');R(7,15,1,2,'#c9993c');R(11,15,1,2,'#c9993c')}
   R(1,26,2,2,'#2a180c');R(17,26,2,2,'#2a180c')})}
 function haySprite(){return sprite('hay',26,20,R=>{R(3,2,20,4,'#c9a55a');R(1,5,24,8,'#b8913e');R(0,12,26,6,'#9a7630');R(2,17,22,2,'#6e5424');[[5,3],[11,2],[17,4],[3,8],[9,7],[15,9],[21,7],[6,13],[13,12],[19,14]].forEach(([x,y])=>R(x,y,2,1,'#e0c070'));R(10,5,6,1,'#8a6a28')})}
-function graveSprite(v){return sprite('grave'+v,16,18,R=>{R(0,8,16,9,'#3a3426');R(1,8,14,1,'#4a4430');R(5,0,6,1,'#6e6c64');R(4,1,8,1,'#6e6c64');R(3,2,10,12,'#76746b');R(11,2,2,12,'#55534c');R(7,4,2,8,'#3a3934');R(3,14,10,2,'#4e4c45');
-  if(v){R(0,12,1,3,'#9a2418');R(15,12,1,3,'#9a2418')}})}
-function treeSprite(id){return sprite('tree'+(id%4),44,48,R=>{R(19,30,5,16,'#3a2a1c');R(19,30,1,16,'#4e3a26');R(16,44,11,2,'#2a1e14');
-  const g=['#16261a','#1d3322','#25422a','#2f5232'];const blobs=[[22,16,18,14],[12,20,10,8],[32,20,10,8],[22,8,12,8],[16,26,9,6],[29,26,9,6]];
-  blobs.forEach(([x,y,rx,ry])=>{for(let dy=-ry;dy<=ry;dy++){const w=Math.round(rx*Math.sqrt(1-dy*dy/(ry*ry)));R(x-w,y+dy,w*2+1,1,g[dy<-ry/3?3:dy<ry/3?2:1])}});
-  for(let i=0;i<40;i++){const a=hash(id,i,4)*6.28,r=15*hash(id,i,5);R(Math.round(22+Math.cos(a)*r*1.1),Math.round(16+Math.sin(a)*r*.8),2,1,hash(id,i,6)<.5?'#3f6a3c':'#10200f')}})}
+function graveSprite(v){return sprite('grave'+v,28,18,R=>{   // 台灣墓: earth mound behind, stone 墓手 arms curving forward, a flat stele in the middle
+  for(let dy=0;dy<8;dy++){const w=Math.round(11*Math.sqrt(1-((7-dy)/8)**2));R(14-w,dy,w*2,1,dy<2?'#46402c':'#3a3426')}R(9,1,2,1,'#4e6a34');R(17,2,1,1,'#4e6a34');R(12,0,1,1,'#5a7a3a');   // grass on the mound
+  R(2,7,24,2,'#76746b');R(2,7,24,1,'#8e8c82');R(1,9,3,7,'#6a685f');R(24,9,3,7,'#5a5850');R(1,9,1,7,'#8e8c82');R(0,14,4,2,'#55534c');R(24,14,4,2,'#4a4842');   // the horseshoe
+  R(4,9,20,7,'#2e2b22');R(10,4,8,12,'#7e7c72');R(17,4,1,12,'#5e5c54');R(10,4,8,1,'#9a988c');R(13,6,2,8,v?'#9a2418':'#4a4840');R(12,15,4,1,'#4e4c45');   // stele, the name line in red on the newer ones
+  R(6,16,16,2,'#4a4842');if(v){R(5,12,2,2,'#c9993c');R(21,12,2,2,'#c9993c')}})}   // offerings of joss paper on the newer graves
+function treeSprite(id){return sprite('tree'+(id%4),44,48,R=>{R(19,28,5,18,'#3a2a1c');R(19,28,1,18,'#4e3a26');R(16,44,11,2,'#2a1e14');R(14,30,6,1,'#3a2a1c');R(24,26,7,1,'#3a2a1c');R(23,25,1,2,'#3a2a1c');   // trunk and two limbs
+  const D='#0e1a10',g=['#16261a','#1f3824','#2b4c2e','#3d6a3a'],n=7+(id%3),cl=[];for(let i=0;i<n;i++){const a=hash(id,i,41)*6.28,r=4+hash(id,i,42)*12;cl.push([22+Math.cos(a)*r*1.15,14+Math.sin(a)*r*.75-(i===0?4:0),5+hash(id,i,43)*4,4+hash(id,i,44)*3])}
+  cl.sort((p,q)=>p[1]-q[1]);for(const[x,y,rx,ry]of cl){for(let dy=-ry;dy<=ry;dy++){const w=Math.round(rx*Math.sqrt(Math.max(0,1-dy*dy/(ry*ry)))),ra=hash(id,Math.round(x*7+dy),45)<.4?1:0;R(Math.round(x-w)-ra,Math.round(y+dy),w*2+1+ra,1,D)}   // dark rim first: it becomes the gap between clumps
+    for(let dy=-ry+1;dy<ry;dy++){const w=Math.round((rx-1)*Math.sqrt(Math.max(0,1-dy*dy/((ry-1)*(ry-1)))));for(let dx=-w;dx<=w;dx++){const l=(-dx/rx-dy/ry);R(Math.round(x+dx),Math.round(y+dy),1,1,g[l>.6?3:l>.05?2:l>-.5?1:0])}}}
+  for(let i=0;i<5;i++){const x=Math.round(10+hash(id,i,46)*24),y=Math.round(20+hash(id,i,47)*6);R(x,y,1,3+Math.round(hash(id,i,48)*3),'#16261a')}})}   // hanging twigs
 function furnitureSprite(onFloor){return sprite('fur'+onFloor,20,14,R=>{if(onFloor==='p'){R(4,2,12,10,'#8a2418');R(4,2,12,2,'#c99a3c');R(4,10,12,2,'#c99a3c');R(2,12,16,2,'#5a1a10');return}
   R(0,0,20,6,'#6a4a2c');R(0,6,20,4,'#4a3220');R(1,10,2,4,'#3a2416');R(17,10,2,4,'#3a2416');R(5,2,2,2,'#d8cfb8');R(12,3,2,2,'#d8cfb8');R(8,1,3,2,'#b8a888')})}
 function altarSprite(){return sprite('altar',48,30,R=>{R(0,14,48,16,'#5a1a10');R(0,14,48,3,'#8a2418');R(0,14,48,1,'#c99a3c');R(0,28,48,1,'#c99a3c');R(4,18,40,8,'#6a1a12');R(6,20,36,4,'#7a2418');
@@ -439,7 +485,7 @@ const OPEN_G='.gbLUOJZXHQY';   // open ground a road gutter can run along
 // a concrete roadside drain with slotted covers (水溝蓋): u is depth from the road edge, w runs along it
 const gutter=(u,w)=>u===0?cc('#5e5b52'):u===4?cc('#38352e'):w%20<11?cc(u===1?'#6c695f':w%2?'#504e47':'#1a1c1c'):cc(u===1?'#1a1c1c':hash(w,u,27)<.14?'#34464c':'#0d1315');
 function groundPx(t,tx,ty,lx,ly,wx,wy,tn){
-  const n=hash(wx,wy,1),pickc=(arr)=>arr[Math.min(arr.length-1,Math.floor((tn*.7+n*.3)*arr.length))];
+  const n=hash(wx>>1,wy>>1,1),pickc=(arr)=>arr[Math.min(arr.length-1,Math.floor((tn*.7+n*.3)*arr.length))];
   switch(t){
   case '.':{const bh=WATER.has(NBn)&&WATER.has(NBs),bv=WATER.has(NBe)&&WATER.has(NBw);
     if(bh||bv){const v=bh?ly:lx,a=bh?wx:wy; // 田埂: a raised earth bund between paddies, grass on both lips, a trodden path down the middle
@@ -471,7 +517,7 @@ function groundPx(t,tx,ty,lx,ly,wx,wy,tn){
     const row=Math.floor(wy/6),off=(row%2)*6,mx=(wx+off)%12,my=wy%6;if(mx===0||my===0)return cc('#36190f');if(n<.04)return cc('#7e4634');return GP.brick[Math.floor(hash(Math.floor((wx+off)/12),row,5)*3)]}
   case 'p':{if(G.sc.temple&&(tx===41||tx===42)){const ax=tx===41?lx:lx+24;if(ax===3||ax===44)return cc('#c99a3c');if(ax===5||ax===42)return cc((wy>>1)%2?'#c99a3c':'#6a1610');if(ax>3&&ax<44)return cc(n<.1?'#6a1610':'#7a1a14')}
     const mx=wx%12,my=wy%12;if(mx===0||my===0)return cc('#2e110c');if(mx===1||my===1)return cc('#6e2a20');return GP.tfloor[(Math.floor(wx/12)+Math.floor(wy/12))%2]}
-  case 'w':{const paddy=G.sceneId==='village'&&ty>=16&&ty<=29&&tx>=68;if(paddy){const gx=(lx+(ty&1)*3)%6,gy=ly%6;   // rice seedlings in rows, each clump with its dark reflection under it
+  case 'w':{const paddy=G.sceneId==='village'&&ty>=16&&ty<=29&&tx>=68;if(paddy){const cxk=Math.floor((wx+(ty&1)*3)/6),cyk=Math.floor(wy/6),jx=Math.round((hash(cxk,cyk,61)-.5)*2),jy=Math.round((hash(cxk,cyk,62)-.5)*2),gx=(lx+(ty&1)*3-jx+60)%6,gy=(ly-jy+60)%6;if(hash(cxk,cyk,63)<.1)return pickc(GP.water);   // hand-planted: each clump a pixel or two off the row, one in ten missing   // rice seedlings in rows, each clump with its dark reflection under it
       if(gx===2&&gy>=1&&gy<=3)return cc(gy===1?'#6a9a4a':'#3e6a3a');if((gx===1||gx===3)&&gy===1)return cc('#4e7e3e');if(gx===2&&gy===4)return cc('#10201f')}
     else if(hash(tx,ty,2)<.25){const ax=6+Math.floor(hash(tx,ty,3)*12),ay=6+Math.floor(hash(tx,ty,4)*12);const dx=lx-ax,dy=ly-ay;if(dx*dx+dy*dy<10&&!(dx>0&&dy===0))return cc(dx<0&&dy<0?'#3e6e3a':'#2f5a30')}
     if(edgeShore(tx,ty,lx,ly))return cc('#3a3226');if(wy%5===0&&hash(wx>>2,wy,29)<.22)return cc('#24393c');if(n<.03)return cc('#2c4a4c');return pickc(GP.water)}
@@ -536,19 +582,19 @@ function houseOf(tx,ty){return G.sc.houses.findIndex(([a,b,c,d])=>tx>=a&&tx<=c&&
 const sanheyuan=hi=>{const[x0,,x1]=G.sc.houses[hi];return x1-x0>=9};   // the big houses are 三合院 (hall + two wings); small ones are one long row
 function shopHouse(){if(G.sceneId!=='village')return -1;const st=G.sc.start;let best=-1,bd=1e9;G.sc.houses.forEach(([x0,y0,x1,y1],i)=>{if(x1-x0>=9)return;const d=Math.hypot((x0+x1)/2-st[0],y1-st[1])+hash(x0,y0,61);if(d<bd){bd=d;best=i}});return best}
 // the outer face of a house's front wall, painted once as one strip so windows and signs can span tiles
-function houseFace(hi){const k='hf'+G.sceneId+hi;if(faceCache.has(k))return faceCache.get(k);const[x0,,x1,y1]=G.sc.houses[hi],W=(x1-x0+1)*TS,c=mk(W,WALLH),g=c.getContext('2d'),R=(x,y,w,h,col)=>{g.fillStyle=col;g.fillRect(x,y,w,h)};
+function houseFace(hi){const k='hf'+G.sceneId+hi;if(faceCache.has(k))return faceCache.get(k);const WY=Math.round(WALLH*.3),[x0,,x1,y1]=G.sc.houses[hi],W=(x1-x0+1)*TS,c=mk(W,WALLH),g=c.getContext('2d'),R=(x,y,w,h,col)=>{g.fillStyle=col;g.fillRect(x,y,w,h)};
   brickFace(R,0,W,'#6a3324','#3e1a12','#7a3d2c');R(0,0,W,1,'#8a4a36');
   const gap=x=>{const t=tileAt(x0+Math.floor(x/TS),y1);return t==='d'||t==='D'};
   if(hi===shopHouse()){const sx=Math.round(W*.22),sw=Math.round(W*.56);R(sx-2,1,sw+4,15,'#3a3834');R(sx,2,sw,13,'#6c6e6a');for(let y=3;y<15;y+=2)R(sx,y,sw,1,'#4e504c');for(let i=0;i<9;i++)R(sx+Math.floor(hash(hi,i,62)*sw),3+Math.floor(hash(hi,i,63)*11),2,1,'#7a4a2a');R(sx,14,sw,1,'#2a2a28');R(sx+sw/2-2|0,12,4,1,'#9a9c96');   // 鐵捲門, rusted
-    ironWin(R,6,4,Math.max(6,sx-14),7,'#c8c4b4');ironWin(R,sx+sw+8,4,Math.max(6,W-sx-sw-14),7,'#c8c4b4')}
+    ironWin(R,6,WY,Math.max(6,sx-14),7,'#c8c4b4');ironWin(R,sx+sw+8,WY,Math.max(6,W-sx-sw-14),7,'#c8c4b4')}
   else if(sanheyuan(hi)){const ww=Math.round((W+8)*.27)-4;   // wing gables either end, a low 花磚 courtyard wall between
-    R(ww,0,W-ww*2,WALLH,'#9a948a');R(ww,0,W-ww*2,2,'#6e3a2a');R(ww,WALLH-3,W-ww*2,3,'#5c5850');for(let x=ww+4;x<W-ww-6;x+=10){if(gap(x)||gap(x+6))continue;R(x,4,7,7,'#3e3a34');R(x+1,5,5,5,'#b8b2a6');R(x+3,5,1,5,'#3e3a34');R(x+1,7,5,1,'#3e3a34');R(x+2,6,1,1,'#3e3a34');R(x+4,8,1,1,'#3e3a34')}
-    R(ww-1,0,1,WALLH,'#3e1a12');R(W-ww,0,1,WALLH,'#3e1a12');ironWin(R,(ww>>1)-5,4,10,7,'#c8c4b4');ironWin(R,W-(ww>>1)-5,4,10,7,hash(hi,1,64)<.5?'#c8c4b4':'#4a7a64')}
-  else for(let x=12;x<W-14;x+=36)if(!gap(x)&&!gap(x+12))ironWin(R,x,4,12,7,hash(hi,x,64)<.6?'#c8c4b4':'#4a7a64');
-  for(let x=0;x<W;x+=TS){const tx=x0+x/TS;if(gap(x))continue;if(['d','D'].includes(tileAt(tx+1,y1)))chunlian(R,x+19,1,13);if(['d','D'].includes(tileAt(tx-1,y1)))chunlian(R,x+2,1,13)}   // 春聯 beside every door in the front wall
+    R(ww,0,W-ww*2,WALLH,'#9a948a');R(ww,0,W-ww*2,2,'#6e3a2a');R(ww,WALLH-3,W-ww*2,3,'#5c5850');for(let x=ww+4;x<W-ww-6;x+=10){if(gap(x)||gap(x+6))continue;R(x,WY,7,7,'#3e3a34');R(x+1,WY+1,5,5,'#b8b2a6');R(x+3,WY+1,1,5,'#3e3a34');R(x+1,WY+3,5,1,'#3e3a34');R(x+2,WY+2,1,1,'#3e3a34');R(x+4,WY+4,1,1,'#3e3a34')}
+    R(ww-1,0,1,WALLH,'#3e1a12');R(W-ww,0,1,WALLH,'#3e1a12');ironWin(R,(ww>>1)-5,WY,10,8,'#c8c4b4');ironWin(R,W-(ww>>1)-5,WY,10,8,hash(hi,1,64)<.5?'#c8c4b4':'#4a7a64')}
+  else for(let x=12;x<W-14;x+=36)if(!gap(x)&&!gap(x+12))ironWin(R,x,WY,12,8,hash(hi,x,64)<.6?'#c8c4b4':'#4a7a64');
+  for(let x=0;x<W;x+=TS){const tx=x0+x/TS;if(gap(x))continue;if(['d','D'].includes(tileAt(tx+1,y1)))chunlian(R,x+19,3,WALLH-7);if(['d','D'].includes(tileAt(tx-1,y1)))chunlian(R,x+2,3,WALLH-7)}   // 春聯 beside every door in the front wall
   R(0,WALLH-2,W,2,'#00000055');faceCache.set(k,c);return c}
 // inside face of a house's back wall: whitewash over a green-painted dado, a 農會 calendar or a clock here and there
-function innerFace(v){return sprite('wfi'+v,24,WALLH,R=>{R(0,0,24,WALLH,'#9e988a');R(0,0,24,1,'#6e3a2a');R(0,9,24,7,'#365e50');R(0,9,24,1,'#24443a');R(0,WALLH-2,24,2,'#00000044');R(0,2,1,7,'#b0aa9c');
+function innerFace(v){return sprite('wfi'+v,24,WALLH,R=>{R(0,0,24,WALLH,'#9e988a');R(0,0,24,1,'#6e3a2a');R(0,WALLH-9,24,7,'#365e50');R(0,WALLH-9,24,1,'#24443a');R(0,WALLH-2,24,2,'#00000044');R(0,2,1,7,'#b0aa9c');
   if(v===1){R(8,1,7,7,'#e8e4d8');R(8,1,7,2,'#c8241c');R(10,4,3,1,'#d7261e');R(9,6,5,1,'#4a4844')}else if(v===2){R(10,2,5,5,'#3a2a1c');R(11,3,3,3,'#e8e2d0');R(12,4,1,1,'#1a1a1a')}else if(v===3){R(5,1,10,6,'#2a1c12');R(6,2,8,4,'#5a4a3a');R(9,3,2,2,'#c8beac')}},true)}
 // temple front: granite plinth, red brick, stone bamboo-joint windows, dragon pillars at the door
 function templeFace(){const k='tf'+G.sceneId;if(faceCache.has(k))return faceCache.get(k);const[x0,,x1,y1]=G.sc.temple,W=(x1-x0+1)*TS,c=mk(W,WALLH),g=c.getContext('2d'),R=(x,y,w,h,col)=>{g.fillStyle=col;g.fillRect(x,y,w,h)};
@@ -605,12 +651,15 @@ function castLight(cx,cy,ang,cone,rNear,rFar,ignoreWalls){
   const pts=[],N=140;for(let i=0;i<N;i++){const a=i/N*Math.PI*2,d=Math.abs(angDiff(a,ang));let len=d<cone?rFar:d<cone+.24?rNear+(rFar-rNear)*(1-(d-cone)/.24):rNear;
     let l=0;if(ignoreWalls)l=len;else{for(;l<len;l+=4){const t=tAtPx(cx+Math.cos(a)*l,cy+Math.sin(a)*l);if(OPAQUE.has(t)&&t!=='C'&&t!=='H'&&t!=='Q'){l+=10;break}}}pts.push([cx+Math.cos(a)*Math.min(l,len),cy+Math.sin(a)*Math.min(l,len)])}
   return pts}
-function stepped(g,cx,cy,r,s){const gr=g.createRadialGradient(cx,cy,0,cx,cy,r);[[0,1],[.42,1],[.43,.78],[.66,.72],[.67,.42],[.86,.36],[.87,.12],[1,0]].forEach(([p,k])=>gr.addColorStop(p,`rgba(0,0,0,${s*k})`));return gr}
-function cut(c,pts,cx,cy,r,s){c.beginPath();pts.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.closePath();c.fillStyle=stepped(c,cx,cy,r,s);c.fill()}
+function stepped(g,cx,cy,r,s,bands){const gr=g.createRadialGradient(cx,cy,0,cx,cy,r);(bands||[[0,1],[.42,1],[.43,.78],[.66,.72],[.67,.42],[.86,.36],[.87,.12],[1,0]]).forEach(([p,k])=>gr.addColorStop(p,`rgba(0,0,0,${s*k})`));return gr}
+function cut(c,pts,cx,cy,r,s,bands){c.beginPath();pts.forEach(([x,y],i)=>i?c.lineTo(x,y):c.moveTo(x,y));c.closePath();c.fillStyle=stepped(c,cx,cy,r,s,bands);c.fill()}
+const TORCH_BANDS=[[0,1],[.36,1],[.37,.84],[.5,.8],[.51,.6],[.68,.55],[.69,.34],[.86,.3],[.87,.1],[1,0]];   // torch: full light where you work, then three steps of dimming out to the tip
+let FLICK={t:4,on:1};   // now and then the torch dips for a blink
 function glow(c,x,y,r,a){c.fillStyle=stepped(c,x,y,r,a);c.beginPath();c.arc(x,y,r,0,7);c.fill()}
+const NEAR_LIT=30;   // the pool of torchlight at your feet: small, so the dark stands right next to you
 const lightK=()=>G.mod.light*(G.t<G.fogUntil?.75:1)*(G.t<G.darkUntil?.14:1);
 // the night's colour: cold moonlight by default, 血月 bleeds red, rain is steel, a blackout is nearly black
-const MOOD={rain:'rgba(4,8,19,.85)',moon:'rgba(22,5,7,.78)',dark:'rgba(2,3,7,.87)'};let LIGHTCONE=null;
+const MOOD={rain:'rgba(4,8,19,.85)',moon:'rgba(22,5,7,.78)',dark:'rgba(2,3,7,.93)'};let LIGHTCONE=null;
 function drawLight(cx0,cy0){
   const c=lctx,P=G.player,L=lightK();c.setTransform(1,0,0,1,0,0);c.globalCompositeOperation='source-over';
   const amb=G.menuMode?'rgba(4,6,16,.62)':G.over==='dawn'?'rgba(26,30,46,.45)':G.mod.id==='fog'||G.t<G.fogUntil?'rgba(17,20,23,.9)':MOOD[G.mod.id]||'rgba(4,7,18,.8)';LIGHTCONE=null;
@@ -618,7 +667,7 @@ function drawLight(cx0,cy0){
   if(!G.menuMode&&(alive(P)||P.dead||P.gone)){const oy=P.y-6;let pts;
     if(P.spot&&P.spot.type!=='tree'){pts=castLight(P.x,oy,0,0,100,100,true);cut(c,pts,P.x,oy,100,.55)} /* through the gap: a little night light from outside, enough to see what moves */
     else if(P.spot){pts=castLight(P.x,oy,P.face,.5,150*L,210*L,false);cut(c,pts,P.x,oy,210*L,1)}
-    else{pts=castLight(P.x,oy,P.face,.42,(P.crouch?44:56)*L,250*L,false);cut(c,pts,P.x,oy,250*L,1)}if(!P.spot||P.spot.type==='tree')LIGHTCONE={pts,x:P.x,y:oy,r:(P.spot?210:250)*L}}
+    else{if(!RM&&!G.menuMode){FLICK.t-=1/60;if(FLICK.t<0){FLICK.on=.7;if(FLICK.t<-.07){FLICK.on=1;FLICK.t=3+Math.random()*4}}}pts=castLight(P.x,oy,P.face,.38,(P.crouch?NEAR_LIT*.8:NEAR_LIT)*L,250*L,false);cut(c,pts,P.x,oy,250*L,FLICK.on,TORCH_BANDS)}if(!P.spot||P.spot.type==='tree')LIGHTCONE={pts,x:P.x,y:oy,r:(P.spot?210:250)*L}}
   const flick=.86+Math.sin(G.t*13)*.06+Math.sin(G.t*7.3)*.05;
   if(G.sc.temple){if(G.incense>0){for(const[lx,ly]of G.sc.lanterns)glow(c,lx*TS,ly*TS,70*flick,.85);glow(c,G.sc.altar.x,G.sc.altar.y+30,110*flick,.8)}else glow(c,G.sc.altar.x,G.sc.altar.y,30,.5)}
   for(const l of G.lamps){const k=lampOn(l);if(k>0)glow(c,l.x+5,l.y+12,96*k,.9*k)}
@@ -630,11 +679,12 @@ function drawLight(cx0,cy0){
   for(const f of G.fires)glow(c,f.x,f.y-4,64*(.9+Math.sin(G.t*17)*.05),.9);
   const A=G.apparition;if(A&&A.type==='funeral')for(const i of[0,A.members-1]){const p=apPos(A,i);glow(c,p.x+5,p.y-16,34,.6)}
   if(G.sceneId==='village')for(let gx=57;gx<=73;gx+=3)for(let gy=5;gy<=13;gy+=3)if(tileAt(gx,gy)==='G'&&hash(gx,gy,5)<.35)glow(c,tc(gx),tc(gy)-4,22+Math.sin(G.t*9+gx)*3,.55);
+  if(G.yelu)YL.light(c);
   c.globalCompositeOperation='source-over';
 }
 // is a point lit enough that you would actually see a monster standing there?
-function litAt(x,y){const P=G.player,L=lightK(),d=Math.hypot(x-P.x,y-P.y);if(d<34)return 1;
-  if(!P.spot||P.spot.type==='tree'){const a=Math.atan2(y-P.y,x-P.x);if(d<(P.crouch?44:56)*L)return los(P.x,P.y,x,y)?1:0;if(d<250*L&&Math.abs(angDiff(a,P.face))<.5&&los(P.x,P.y,x,y))return 1}
+function litAt(x,y){const P=G.player,L=lightK(),d=Math.hypot(x-P.x,y-P.y);if(d<22)return 1;
+  if(!P.spot||P.spot.type==='tree'){const a=Math.atan2(y-P.y,x-P.x);if(d<(P.crouch?NEAR_LIT*.8:NEAR_LIT)*L)return los(P.x,P.y,x,y)?1:0;if(d<250*L&&Math.abs(angDiff(a,P.face))<.5&&los(P.x,P.y,x,y))return 1}
   for(const l of G.lamps)if(lampOn(l)>.3&&Math.hypot(l.x+5-x,l.y+12-y)<70)return 1;
   if(G.sc.temple&&G.incense>0&&Math.hypot(G.sc.altar.x-x,G.sc.altar.y+30-y)<100)return 1;
   for(const f of G.fx)if(f.type==='bang'&&Math.hypot(f.x-x,f.y-y)<160)return 1;
@@ -646,8 +696,11 @@ function litAt(x,y){const P=G.player,L=lightK(),d=Math.hypot(x-P.x,y-P.y);if(d<3
 function shadow(x,y,rx,a){pdisc(bx,x,y,rx,Math.max(1,Math.round(rx*.45)),`rgba(0,0,0,${a||.45})`)}
 function blit(spr,x,y,flip,alpha){const w=spr.width,h=spr.height;bx.save();if(alpha!==undefined&&alpha<1)bx.globalAlpha=Math.max(0,alpha);if(flip){bx.translate(Math.round(x+w/2),0);bx.scale(-1,1);bx.drawImage(spr,0,Math.round(y-h))}else bx.drawImage(spr,Math.round(x-w/2),Math.round(y-h));bx.restore()}
 function lowSprite(spr,key){let s2=SPR.get(key);if(!s2){s2=mk(spr.width,spr.height);const g=s2.getContext('2d');g.drawImage(spr,0,0,spr.width,6,0,4,spr.width,6);g.drawImage(spr,0,10,spr.width,spr.height-10,0,10,spr.width,spr.height-10);SPR.set(key,s2)}return s2}
+// a figure in the torch beam throws a thin shadow straight away from you along the ground
+function torchShadow(x,y,tall){const P=G.player;if(!alive(P)||P.spot&&P.spot.type!=='tree')return;const d=Math.hypot(x-P.x,y-P.y);if(d<10||d>250*lightK())return;const a=Math.atan2(y-P.y,x-P.x);if(Math.abs(angDiff(a,P.face))>.42&&d>NEAR_LIT)return;
+  const n=Math.round(Math.min(14,4+tall*.35+d*.03)),ca=Math.cos(a),sa=Math.sin(a)*.6;bx.fillStyle='rgba(0,0,0,.42)';for(let i=2;i<n;i++)bx.fillRect(Math.round(x+ca*i)-1,Math.round(y+1+sa*i),2,1)}
 function drawHumanPx(h){
-  if(h.spot&&!(h.isPlayer&&h.spot.type==='tree'))return;
+  if(h.spot&&!(h.isPlayer&&h.spot.type==='tree'))return;if(!h.isPlayer&&litAt(h.x,h.y-8))torchShadow(h.x,h.y,h.child?12:20);
   const A=h.isPlayer?h.action:null,face=A?A.a:h.face,dir=faceDir(face),f=h.moving?Math.floor(h.anim*8)%4:0,br=!h.moving&&Math.sin(G.t*2.1+(h.name||"P").length*1.3)>.2;let spr=humanSprite(h,dir,f,br);
   const low=crouched(h)||h.state==='hide'||(A&&A.item==='incense');
   shadow(h.x,h.y+1,h.child?4:5,.45);let y=h.y+2-(h.moving&&f%2===0?1:0);if(h.drown)y+=6;   // walk: the body rises on the passing step, drops on the stride
@@ -657,8 +710,15 @@ function drawHumanPx(h){
   if(A&&A.t<A.dur*.6){const ic=iconSprite(A.item),hx=h.x+Math.cos(face)*8,hy=h.y-12+Math.sin(face)*4;bx.drawImage(ic,Math.round(hx-ic.width/2),Math.round(hy-ic.height/2))}
 }
 function monMode(m){if(m.type==='kuchi'&&m.state==='ask')return m.askNear||!m.moving?'scare':'';if(m.type==='mosin'&&m.state==='stalk')return'tilt';if(m.type==='tiger'&&['chase','knock','camp','bash'].includes(m.state))return'reveal';if(m.type==='suigui'&&m.state==='drag')return'scare';if(m.type==='mosin'&&m.state==='lead')return'scare';return''}
+// a sprite as a flat silhouette (cached): black shapes in the dark, the white halo of a lunge
+function darkShape(spr,col){col=col||'#0a0c10';const key=spr;let c=(DSH.get(key)||{})[col];if(c)return c;const w=spr.width,h=spr.height;c=mk(w,h+1);const g=c.getContext('2d');
+  if(col==='#0a0c10'){g.drawImage(spr,0,0);g.globalCompositeOperation='source-in';g.fillStyle='#3e4b5c';g.fillRect(0,0,w,h+1);g.globalCompositeOperation='source-over';const t=mk(w,h),tg=t.getContext('2d');tg.drawImage(spr,0,0);tg.globalCompositeOperation='source-in';tg.fillStyle=col;tg.fillRect(0,0,w,h);g.drawImage(t,0,1)}   // a cold rim of moonlight on the top edge
+  else{g.drawImage(spr,0,0);g.globalCompositeOperation='source-in';g.fillStyle=col;g.fillRect(0,0,w,h)}
+  const o=DSH.get(key)||{};o[col]=c;DSH.set(key,o);return c}
+const DSH=new Map();
 function drawMonsterPx(m){
-  if(m.hidden)return;const P=G.player;const peek=P.spot&&P.spot.type!=='tree'&&dist(m,P)<6*TS;m.vis=lerp(m.vis||0,G.menuMode?0:(litAt(m.x,m.y-8)||(m.state==='bash'&&dist(m,P)<3*TS))?1:peek?.75:0,.18);if(m.vis<.04)return;
+  if(m.hidden)return;const P=G.player;if(G.scare&&G.scare.type===m.type&&dist(m,P)<5*TS)return;   // it is in your face now, not standing over there
+  const peek=P.spot&&P.spot.type!=='tree'&&dist(m,P)<6*TS;m.vis=lerp(m.vis||0,G.menuMode?0:(litAt(m.x,m.y-8)||(m.state==='bash'&&dist(m,P)<3*TS))?1:peek?.75:0,.18);if(m.vis<.04)return;
   const stalk=m.state==='stalk'&&m.target;let dir=faceDir(stalk?Math.atan2(m.target.y-m.y,m.target.x-m.x):m.face),mode=monMode(m);let f=m.moving?Math.floor(m.anim*(m.state==='chase'?11:stalk?5:7))%4:0;
   const A=G.apparition,held=A&&A.type==='girl'&&!A.violated&&!['drag','lead','sealed'].includes(m.state)&&dist(m,P)<14*TS;/* while 紅衣小女孩 watches: no breath, eyes on her */
   if(held)dir=faceDir(Math.atan2(A.y-m.y,A.x-m.x));
@@ -666,8 +726,8 @@ function drawMonsterPx(m){
   const br=!held&&!m.moving&&Math.sin(G.t*(m.type==='jiang'?1.4:2.6)+m.type.length*1.7)>0;   // idle: breathing (the 殭屍 only sways)
   // jiang in stalk: it stands rooted (game.js no longer moves it) and trembles before the hop
   if(m.type==='jiang'){const ph=(m.hop||0)%1,air=m.moving&&!stalk&&ph<.55?Math.sin(ph/.55*Math.PI):0;if(stalk){const j=Math.sin(G.t*31)>.6?1:0;shadow(m.x,m.y+1,6,.45);blit(monSprite('jiang',dir,0,mode,false),m.x+j,m.y+2,dir==='l',m.vis);return}shadow(m.x,m.y+1,6-Math.round(air*2),.45-air*.15);const s=monSprite('jiang',dir,air>.3?1:0,mode,br);blit(s,m.x,m.y+2-Math.round(air*8),dir==='l',m.vis);return}
-  const s=monSprite(m.type,dir,f,mode,br);let al=m.vis;
-  if(m.type==='mosin')al*=(.55+(dist(m,P)<3*TS?.35:0))+Math.sin(G.t*9)*.08;
+  const s=monSprite(m.type,dir,f,mode,br);let al=m.vis;if(m.vis>.5)torchShadow(m.x,m.y,s.height);
+  if(m.type==='mosin')al*=(.78+(dist(m,P)<3*TS?.2:0))+Math.sin(G.t*9)*.06;
   if(m.type==='suigui'){const wet=WATER.has(tAtPx(m.x,m.y));const showH=m.state==='drag'||!wet?s.height:m.state==='chase'?17:10;
     bx.save();bx.globalAlpha=al;const dy=Math.round(m.y+2-showH);if(dir==='l'){bx.translate(Math.round(m.x+s.width/2),0);bx.scale(-1,1);bx.drawImage(s,0,0,s.width,showH,0,dy,s.width,showH)}else bx.drawImage(s,0,0,s.width,showH,Math.round(m.x-s.width/2),dy,s.width,showH);bx.restore();
     if(wet){bx.fillStyle='rgba(170,200,205,.4)';bx.fillRect(Math.round(m.x-6),Math.round(m.y+1),12,1)}
@@ -692,7 +752,7 @@ function drawLampPx(l){const x=Math.round(l.x),y=Math.round(l.y+18),k=lampOn(l);
   bx.fillStyle=l.dead?'#2a2a2a':k>0?`rgb(255,${200+k*40|0},150)`:'#55524a';bx.fillRect(x+5,y-33,4,2);
   if(l.dead){bx.fillStyle='#8a9aa0';bx.fillRect(x+3,y+1,1,1);bx.fillRect(x+7,y,1,1);bx.fillRect(x-1,y+2,1,1)}}
 function drawDogPx(d){if(!litAt(d.x,d.y)&&dist(d,G.player)>4*TS)return;const f=Math.floor(d.anim*(d.quiet?1:3))%2,spr=dogSprite(d.quiet?0:f,d.bark>0);shadow(d.x,d.y+1,5,.4);blit(spr,d.x,d.y+2,Math.cos(d.face)<0)}
-function drawGravePx(tx,ty){const spr=graveSprite(hash(tx,ty,5)<.35?1:0);bx.drawImage(spr,tx*TS+3,ty*TS+22-spr.height)}
+function drawGravePx(tx,ty){const spr=graveSprite(hash(tx,ty,5)<.35?1:0);bx.drawImage(spr,tx*TS-3+Math.round((hash(tx,ty,6)-.5)*4),ty*TS+22-spr.height)}
 function drawItemPx(it){const b=Math.round(Math.sin(G.t*3+it.bob)*1.5),ic=iconSprite(it.type);bx.fillStyle='rgba(0,0,0,.4)';bx.fillRect(Math.round(it.x-5),Math.round(it.y+5),10,2);
   if(Math.sin(G.t*2+it.bob)>.7){bx.fillStyle='rgba(255,240,200,.8)';bx.fillRect(Math.round(it.x+5),Math.round(it.y-9),1,1)}bx.drawImage(ic,Math.round(it.x-ic.width/2),Math.round(it.y-12+b))}
 function drawCluePx(c){const b=Math.round(Math.sin(G.t*2.4+c.bob));bx.fillStyle='rgba(0,0,0,.35)';bx.fillRect(Math.round(c.x-4),Math.round(c.y+3),8,2);bx.fillStyle='#e8e0c8';bx.fillRect(Math.round(c.x-4),Math.round(c.y-5+b),8,6);bx.fillStyle='#7a6a4a';bx.fillRect(Math.round(c.x-3),Math.round(c.y-3+b),6,1);bx.fillRect(Math.round(c.x-3),Math.round(c.y-1+b),4,1)}
@@ -736,7 +796,7 @@ const DSPR={
   jinlu:()=>sprite('jinlu',22,34,R=>{R(1,24,20,10,'#5a1e14');for(let y=26;y<34;y+=3)R(1,y,20,1,'#3a120c');R(1,24,20,1,'#8a3a24');R(3,10,16,15,'#8a2a1c');R(3,10,1,15,'#a83a26');R(17,10,2,15,'#5e1a10');   // 金爐: brick furnace, tiered roof, embers in the mouth
     R(7,15,8,8,'#140806');R(8,19,6,3,'#7a2a10');R(9,20,1,1,'#e8822a');R(12,20,1,1,'#c8521a');R(10,21,2,1,'#f0a040');R(6,14,10,1,'#c99a3c');
     R(0,7,22,3,'#4a160e');R(0,7,22,1,'#c99a3c');R(-1,6,2,1,'#4a160e');R(21,6,2,1,'#4a160e');R(5,3,12,4,'#8a2a1c');R(5,3,12,1,'#a83a26');R(3,1,16,2,'#4a160e');R(3,1,16,1,'#c99a3c');R(2,0,1,1,'#4a160e');R(19,0,1,1,'#4a160e');R(10,-2,2,3,'#c99a3c')}),
-  lion:f=>sprite('lion'+f,10,13,R=>{R(0,10,10,3,'#55534c');R(0,10,10,1,'#76736a');R(2,5,6,5,'#7a776e');R(1,0,8,6,'#8a877d');R(1,0,8,1,'#a4a196');for(const[x,y]of[[1,1],[3,0],[6,0],[8,1],[1,4],[8,4]])R(x,y,1,1,'#5e5b54');R(3,2,1,1,'#1e1c1a');R(6,2,1,1,'#1e1c1a');R(3,4,4,1,'#4a4842');R(f?7:1,7,2,3,'#6a675f');R(f?1:6,6,3,3,'#8a877d')}),   // 石獅 (one with the ball)
+  lion:f=>sprite('lion'+f,10,13,R=>{R(0,10,10,3,'#55534c');R(0,10,10,1,'#76736a');R(2,5,6,5,'#7a776e');R(1,0,8,6,'#8a877d');R(1,0,8,1,'#a4a196');for(const[x,y]of[[0,1],[1,0],[3,-1],[6,-1],[8,0],[9,1],[0,3],[9,3],[0,5],[9,5]])R(x,y,1,1,'#6e6b62');for(const[x,y]of[[1,1],[3,0],[6,0],[8,1],[1,4],[8,4]])R(x,y,1,1,'#5e5b54');R(3,2,1,1,'#1e1c1a');R(6,2,1,1,'#1e1c1a');R(3,4,4,2,'#2a2826');R(4,4,2,1,'#a4a196');R(f?7:1,7,2,3,'#6a675f');R(f?1:6,6,3,3,'#8a877d')}),   // 石獅 (one with the ball)
   scarecrow:()=>sprite('scare',14,26,R=>{R(6,8,2,18,'#5a4a30');R(0,9,14,2,'#5a4a30');R(1,11,12,7,'#4a4e5a');R(1,11,1,7,'#5e6270');R(3,17,2,3,'#4a4e5a');R(9,17,3,2,'#4a4e5a');R(0,9,1,4,'#b8a060');R(13,9,1,4,'#b8a060');   // 稻草人 under a 斗笠
     R(4,4,6,5,'#c8b07a');R(5,6,1,1,'#2a2014');R(8,6,1,1,'#2a2014');R(5,8,4,1,'#8a7040');R(0,3,14,2,'#b09a5a');R(2,2,10,1,'#c8b070');R(4,1,6,1,'#d8c080');R(6,0,2,1,'#e0c888');R(0,4,14,1,'#7a6a3a')}),
   palm:v=>sprite('palm'+v,22,62,R=>{const L=v?'#2e4a24':'#344f26',D='#1c3018';R(10,14,2,48,'#6a6a5a');R(10,14,1,48,'#8a8a78');for(let y=18;y<60;y+=4)R(10,y,2,1,'#4a4a3e');R(9,12,4,4,'#3e5a2a');R(10,15,3,2,'#c8a040');   // 檳榔樹: a ringed trunk, a green crownshaft, nuts, arching fronds
@@ -750,7 +810,7 @@ const DSPR={
     R(W/2-12,30,24,4,'#14181e');R(W/2-12,30,24,1,'#c99a3c');[-8,-3,2,7].forEach(x=>R(W/2+x,31,2,2,'#c99a3c'));SPR.set(k,c);return c},   // 匾額 under the eave
 };
 const DEC={g:null,items:[],wires:[],emit:[]};
-function decorPlan(){if(DEC.g===G)return DEC;DEC.g=G;const items=[],emit=[],T=tileAt,sc=G.sc,res=new Set(),key=(x,y)=>x+','+y,free=(x,y)=>T(x,y)==='.'&&!res.has(key(x,y));
+function decorPlan(){if(DEC.g===G)return DEC;DEC.g=G;if(G.sc.decor){const D=G.sc.decor();DEC.items=D.items||[];DEC.wires=D.wires||[];DEC.emit=D.emit||[];DEC.solids=DEC.items.filter(i=>i.solid).map(i=>({x:i.x,y:i.y,hw:i.solid[0],hd:i.solid[1]}));return DEC}const items=[],emit=[],T=tileAt,sc=G.sc,res=new Set(),key=(x,y)=>x+','+y,free=(x,y)=>T(x,y)==='.'&&!res.has(key(x,y));
   for(const L of[sc.items,sc.clues,sc.survivors,sc.dogs,sc.hays,sc.trees])for(const p of L||[])for(let dy=-1;dy<=1;dy++)for(let dx=-1;dx<=1;dx++)if(!dx||!dy)res.add(key(p[0]+dx,p[1]+dy));
   res.add(key(Math.floor(sc.start[0]),Math.floor(sc.start[1])));
   const add=(x,y,spr,o)=>{items.push(Object.assign({x,y,spr},o));};
@@ -760,29 +820,29 @@ function decorPlan(){if(DEC.g===G)return DEC;DEC.g=G;const items=[],emit=[],T=ti
   for(const l of G.lamps){const p={x:Math.round(l.x)+1,y:Math.round(l.y+18)-45,s:l.tx,t:l.ty};put(rows,l.ty,Object.assign({o:p.s},p));put(cols,l.tx,Object.assign({o:p.t},p))}
   for(let y=1;y<MH-3;y++)for(let x=1;x<MW-1;x++){if(!free(x,y)||nearLamp(x,y))continue;
     const ew=T(x,y+1)==='r'&&T(x,y+2)==='r'&&T(x,y+3)==='r'&&x%7===0,ns=T(x+1,y)==='r'&&T(x+2,y)==='r'&&T(x+3,y)==='r'&&y%6===0;if(!ew&&!ns)continue;
-    const v=hash(x,y,70),px=tc(x),py=(y+1)*TS-3;add(px,py,DSPR.pole(v<.3?1:v<.45?2:0));res.add(key(x,y));const p={x:px,y:py-45,s:x,t:y};if(ew)put(rows,y,Object.assign({o:x},p));if(ns)put(cols,x,Object.assign({o:y},p))}
+    const v=hash(x,y,70),px=tc(x),py=(y+1)*TS-3;add(px,py,DSPR.pole(v<.3?1:v<.45?2:0),{solid:[2,3]});res.add(key(x,y));const p={x:px,y:py-45,s:x,t:y};if(ew)put(rows,y,Object.assign({o:x},p));if(ns)put(cols,x,Object.assign({o:y},p))}
   const wires=[];const wire=(a,b)=>{for(const o of[-4,4]){const ax=a.x+o,bx2=b.x+o,ay=a.y,by=b.y,len=Math.hypot(bx2-ax,by-ay),sag=5+len*.04,n=Math.ceil(Math.max(Math.abs(bx2-ax),Math.abs(by-ay))),x0=Math.min(ax,bx2)-1,y0=Math.min(ay,by)-1,
       c=mk(Math.abs(bx2-ax)+3,Math.abs(by-ay)+sag+4|0),g=c.getContext('2d');g.fillStyle='#0c0c0e';for(let i=0;i<=n;i++){const s=i/n;g.fillRect(Math.round(ax+(bx2-ax)*s-x0),Math.round(ay+(by-ay)*s+sag*4*s*(1-s)-y0),1,1)}wires.push({c,x:x0,y:y0})}};
   for(const m of[rows,cols])for(const L of m.values()){L.sort((a,b)=>a.o-b.o);for(let i=1;i<L.length;i++)if(L[i].o-L[i-1].o<=15)wire(L[i-1],L[i])}
   // the shop nearest the village gate gets its signboard and a public phone; a 檳榔攤 stands by the road
-  const sh=shopHouse();if(sh>=0){const[x0,,x1,y1]=sc.houses[sh],cx=(x0+x1+1)*TS/2;add(cx,(y1+1)*TS-WALLH+2,DSPR.shopsign(),{sy:(y1+1)*TS+.4});const ph=[x1+1,x0-1].find(x=>free(x,y1));if(ph!==undefined){add(tc(ph),(y1+1)*TS-2,DSPR.phone());take(ph,y1)}}
+  const sh=shopHouse();if(sh>=0){const[x0,,x1,y1]=sc.houses[sh],cx=(x0+x1+1)*TS/2;add(cx,(y1+1)*TS-WALLH+2,DSPR.shopsign(),{sy:(y1+1)*TS+.4});const ph=[x1+1,x0-1].find(x=>free(x,y1));if(ph!==undefined){add(tc(ph),(y1+1)*TS-2,DSPR.phone(),{solid:[4,3]});take(ph,y1)}}
   if(sc.truck){const[gx,gy]=[Math.floor(sc.truck[0]/TS),Math.floor(sc.truck[1]/TS)];let best=null;const st=sc.start;for(let y=gy-12;y<gy-2;y++)for(let x=gx-7;x<gx+7;x++){if(!free(x,y)||!free(x-1,y)||!free(x+1,y)||!free(x,y-1))continue;const nr=T(x+2,y)==='r'||T(x-2,y)==='r';if(!nr)continue;const sco=Math.hypot(x-st[0],y-st[1])+hash(x,y,76)*3;if(!best||sco<best.s)best={x,y,s:sco}}
-    if(best){add(tc(best.x),(best.y+1)*TS-2,DSPR.kiosk(),{flip:T(best.x-2,best.y)==='r'});add(tc(best.x)+(T(best.x-2,best.y)==='r'?14:-14),(best.y+1)*TS-3,DSPR.chair(0));take(best.x,best.y)}}
+    if(best){add(tc(best.x),(best.y+1)*TS-2,DSPR.kiosk(),{flip:T(best.x-2,best.y)==='r',solid:[13,6]});add(tc(best.x)+(T(best.x-2,best.y)==='r'?14:-14),(best.y+1)*TS-3,DSPR.chair(0));take(best.x,best.y)}}
   // round each house: a scooter against the wall, red chairs, a bicycle, a water jar, pots of greens
   sc.houses.forEach(([x0,y0,x1,y1],hi)=>{const ring=[];for(let x=x0;x<=x1;x++)ring.push([x,y1+1,'s']);for(let y=y0+1;y<=y1;y++){ring.push([x0-1,y,'w']);ring.push([x1+1,y,'e'])}
     let n=0;for(const[x,y,side]of ring){if(n>=4||!free(x,y)||!free(x+1,y)&&side==='s')continue;const near=[[0,0],[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dy])=>['d','D'].includes(T(x+dx,y+dy)));if(near)continue;const v=hash(x,y,71);if(v>.42)continue;
       const px=tc(x)+(side==='w'?4:side==='e'?-4:0),py=side==='s'?(y)*TS+11:tc(y)+6,k=v*10|0;
-      add(px,py,k<1?DSPR.scooter(hash(x,y,72)*4|0):k<2?DSPR.chair(hash(x,y,73)<.4?1:0):k<3?DSPR.bike():k<4?DSPR.jar():DSPR.pots(),{flip:hash(x,y,74)<.5});if(k===1&&hash(x,y,75)<.6)add(px+8,py+1,DSPR.chair(0));take(x,y);n++}});
+      add(px,py,k<1?DSPR.scooter(hash(x,y,72)*4|0):k<2?DSPR.chair(hash(x,y,73)<.4?1:0):k<3?DSPR.bike():k<4?DSPR.jar():DSPR.pots(),{flip:hash(x,y,74)<.5,solid:k<1?[8,3]:k<2?null:k<3?[7,3]:k<4?[4,3]:[5,3]});if(k===1&&hash(x,y,75)<.6)add(px+8,py+1,DSPR.chair(0));take(x,y);n++}});
   // the temple: stone lions at the door, a 金爐 on the plaza, a gate roof with dragons over the door
   if(sc.temple){const[x0,y0,x1,y1]=sc.temple,dx=[];for(let x=x0;x<=x1;x++)if(['d','D'].includes(T(x,y1)))dx.push(x);
-    if(dx.length){const a=dx[0],b=dx[dx.length-1],mid=(a+b+1)*TS/2;add(a*TS-5,(y1+1)*TS+12,DSPR.lion(0));add((b+1)*TS+5,(y1+1)*TS+12,DSPR.lion(1));
+    if(dx.length){const a=dx[0],b=dx[dx.length-1],mid=(a+b+1)*TS/2;add(a*TS-5,(y1+1)*TS+12,DSPR.lion(0),{solid:[5,3]});add((b+1)*TS+5,(y1+1)*TS+12,DSPR.lion(1),{solid:[5,3]});
       add(mid,(y1+1)*TS-WALLH-2,DSPR.crest(),{sy:(y1+1)*TS-.2,fade:'temple'});
-      const jx=Math.max(x0+1,a-4),jy=y1+2;add(tc(jx),(jy+1)*TS,DSPR.jinlu());emit.push({x:tc(jx),y:(jy+1)*TS-11,k:'ember'})}}
+      const jx=Math.max(x0+1,a-4),jy=y1+2;add(tc(jx),(jy+1)*TS,DSPR.jinlu(),{solid:[9,5]});emit.push({x:tc(jx),y:(jy+1)*TS-11,k:'ember'})}}
   // paddies: a 稻草人 in the middle of the biggest field; 檳榔樹 at the edge of the woods
   let sc2=null;for(let y=1;y<MH-1;y++)for(let x=1;x<MW-1;x++)if(T(x,y)==='w'&&DIRS8.every(([a,b])=>T(x+a,y+b)==='w')&&G.sceneId==='village'&&y<30){const v=hash(x,y,77);if(!sc2||v<sc2.v)sc2={x,y,v}}
-  if(sc2)add(tc(sc2.x),(sc2.y+1)*TS-6,DSPR.scarecrow());
-  for(let y=1;y<MH-1;y++)for(let x=1;x<MW-1;x++)if(T(x,y)==='T'&&(T(x,y+1)==='.'||T(x,y+1)==='g'||T(x+1,y)==='.'||T(x-1,y)==='.')&&hash(x,y,78)<.18)add(tc(x)+(hash(x,y,79)-.5)*10,(y+1)*TS-4,DSPR.palm(hash(x,y,80)<.5?1:0));
-  DEC.items=items;DEC.wires=wires;DEC.emit=emit;return DEC}
+  if(sc2)add(tc(sc2.x),(sc2.y+1)*TS-6,DSPR.scarecrow(),{solid:[2,2]});
+  for(let y=1;y<MH-1;y++)for(let x=1;x<MW-1;x++)if(T(x,y)==='T'&&(T(x,y+1)==='.'||T(x,y+1)==='g'||T(x+1,y)==='.'||T(x-1,y)==='.')&&hash(x,y,78)<.18)add(tc(x)+(hash(x,y,79)-.5)*10,(y+1)*TS-4,DSPR.palm(hash(x,y,80)<.5?1:0),{solid:[3,3]});
+  DEC.items=items;DEC.wires=wires;DEC.emit=emit;DEC.solids=items.filter(i=>i.solid).map(i=>({x:i.x,y:i.y,hw:i.solid[0],hd:i.solid[1]}));return DEC}   // things you bump into instead of walking through
 function drawDecor(it){const s=it.spr;let a=1;
   {const x0=it.x-s.width/2,x1=it.x+s.width/2,y1=it.sy||it.y,y0=it.y-s.height,behind=e=>e.x>x0&&e.x<x1&&e.y>y0&&e.y<y1; // someone standing behind it: see through it, never hide a lit monster
     if(G.monsters.some(m=>!m.hidden&&(m.vis||0)>.1&&behind(m))||G.humans.some(h=>alive(h)&&!h.spot&&behind(h)))a=.4}if(it.fade==='temple'){const[x0,y0,x1,y1]=G.sc.temple,P=G.player,inside=!G.menuMode&&P.x>x0*TS&&P.x<(x1+1)*TS&&P.y>y0*TS&&P.y<(y1+1)*TS;G.flags.crestA=lerp(G.flags.crestA===undefined?1:G.flags.crestA,inside?.25:1,.18);a=G.flags.crestA}
@@ -792,20 +852,25 @@ function drawDecor(it){const s=it.spr;let a=1;
 let fogTex=null,fogTex2=null,GRAIN=null;
 function makeFog(){const c=mk(128,128),g=c.getContext('2d');for(let i=0;i<22;i++){const x=hash(i,1,9)*128,y=hash(i,2,9)*128,r=14+hash(i,3,9)*30;for(const ox of[-128,0,128])for(const oy of[-128,0,128])pdisc(g,x+ox,y+oy,Math.round(r),Math.round(r*.6),'rgba(190,200,210,.07)')}fogTex=c;
   const c2=mk(320,160),g2=c2.getContext('2d');for(let i=0;i<40;i++){const x=hash(i,4,9)*320,y=hash(i,5,9)*160,r=12+hash(i,6,9)*44,al=.025+hash(i,7,9)*.04;for(const ox of[-320,0,320])for(const oy of[-160,0,160])pdisc(g2,x+ox,y+oy,Math.round(r),Math.max(2,Math.round(r*(.12+hash(i,8,9)*.18))),`rgba(200,210,215,${al.toFixed(3)})`)}fogTex2=c2}   // second layer: long low bands that hug the ground
-function grainTex(){if(GRAIN)return GRAIN;const c=mk(64,64),g=c.getContext('2d'),d=g.createImageData(64,64),a=d.data;for(let i=0;i<64*64;i++){const v=hash(i,9,31);if(v<.05){a[i*4+3]=30}else if(v>.975){a[i*4]=a[i*4+1]=170;a[i*4+2]=190;a[i*4+3]=10}}g.putImageData(d,0,0);return GRAIN=c}
+function grainTex(){if(GRAIN)return GRAIN;const c=mk(64,64),g=c.getContext('2d'),d=g.createImageData(64,64),a=d.data;for(let i=0;i<64*64;i++){const v=hash(i,9,31);if(v<.03){a[i*4+3]=14}else if(v>.985){a[i*4]=a[i*4+1]=170;a[i*4+2]=190;a[i*4+3]=6}}g.putImageData(d,0,0);return GRAIN=c}
 function tileFog(tex,cx0,cy0,sx,sy,al,op){const w=tex.width,h=tex.height,ox=Math.floor(G.t*sx)%w,oy=Math.floor(G.t*sy)%h;bx.save();bx.globalAlpha=al;if(op)bx.globalCompositeOperation=op;
   for(let y=Math.floor((cy0-oy)/h)*h+oy-h;y<cy0+BH;y+=h)for(let x=Math.floor((cx0-ox)/w)*w+ox-w;x<cx0+BW;x+=w)bx.drawImage(tex,x,y);bx.restore()}
+// rain: where the torch hits the ground it shines wet, short streaks of reflection pointing away from you
+function wetSheen(){const C=LIGHTCONE;if(!C)return;const P=G.player;bx.fillStyle='rgba(143,163,176,.55)';for(let i=0;i<70;i++){const a=P.face+(hash(i,1,81)-.5)*.7,r=30+hash(i,2,81)*(C.r-40),x=Math.round(C.x+Math.cos(a)*r),y=Math.round(C.y+6+Math.sin(a)*r*.9);if(Math.sin(G.t*2+i)<.2)continue;bx.fillRect(x,y,1,1);bx.fillRect(Math.round(x+Math.cos(a)*2),Math.round(y+Math.sin(a)*2),1,1)}}
+// the torch beam itself, seen in fog (a pale wedge) or tinted red under the blood moon
+function beamTint(){const C=LIGHTCONE,fog=G.mod.id==='fog'||G.t<G.fogUntil,moon=G.mod.id==='moon';if(!C||!(fog||moon))return;bx.save();bx.beginPath();C.pts.forEach(([x,y],i)=>i?bx.lineTo(x,y):bx.moveTo(x,y));bx.closePath();
+  if(fog){bx.globalCompositeOperation='lighter';bx.fillStyle='rgba(44,48,52,.45)'}else{bx.globalCompositeOperation='multiply';bx.fillStyle='rgba(255,196,186,1)'}bx.fill();bx.restore()}
 function drawFog(cx0,cy0){if(!fogTex)makeFog();const fog=G.mod.id==='fog'||G.t<G.fogUntil,a=fog?.9:G.mod.id==='rain'?.35:.3;tileFog(fogTex,cx0,cy0,5,1.5,a);tileFog(fogTex2,cx0,cy0,-3,.6,fog?.9:.45)}
 // after the light: a little of the mist stays visible in the dark, moonlit, so the night has depth; thick on fog nights
-function drawMist(cx0,cy0){if(G.menuMode&&!fogTex)return;if(!fogTex)makeFog();const fog=G.mod.id==='fog'||G.t<G.fogUntil;tileFog(fogTex2,cx0,cy0,-3,.6,fog?.32:G.mod.id==='rain'?.12:.08,'screen');if(fog)tileFog(fogTex,cx0,cy0,5,1.5,.14,'screen')}
-function drawRain(cx0,cy0){if(G.mod.id!=='rain')return;for(let i=0;i<90;i++){const x=Math.floor((hash(i,1,3)*BW+G.t*40*(.8+hash(i,2,3)))%BW),y=Math.floor((hash(i,4,3)*BH+G.t*340*(.8+hash(i,5,3)*.4))%BH),far=hash(i,6,3)<.4;
-    bx.fillStyle=far?'rgba(150,170,195,.3)':'rgba(180,200,225,.5)';bx.fillRect(cx0+x,cy0+y,1,far?2:3);if(!far){bx.fillRect(cx0+x+1,cy0+y+3,1,2)}}
+function drawMist(cx0,cy0){if(!G.menuMode)beamTint();if(G.menuMode&&!fogTex)return;if(!fogTex)makeFog();const fog=G.mod.id==='fog'||G.t<G.fogUntil;tileFog(fogTex2,cx0,cy0,-3,.6,fog?.32:G.mod.id==='rain'?.12:.08,'screen');if(fog)tileFog(fogTex,cx0,cy0,5,1.5,.14,'screen')}
+function drawRain(cx0,cy0){if(G.mod.id!=='rain')return;wetSheen();for(let i=0;i<240;i++){const x=Math.floor((hash(i,1,3)*BW+G.t*40*(.8+hash(i,2,3)))%BW),y=Math.floor((hash(i,4,3)*BH+G.t*340*(.8+hash(i,5,3)*.4))%BH),far=hash(i,6,3)<.4;
+    bx.fillStyle=far?'rgba(150,170,195,.16)':'rgba(180,200,225,.42)';bx.fillRect(cx0+x,cy0+y,1,far?3:4);if(!far){bx.fillRect(cx0+x+1,cy0+y+4,1,2)}}   // more, longer, slanted streaks; the far ones show faintly even in the dark
   bx.fillStyle='rgba(190,210,230,.55)';for(let i=0;i<36;i++){const ph=(G.t*3+hash(i,7,3))%1,j=Math.floor(G.t*3+hash(i,7,3)),x=cx0+Math.floor(hash(i,j,8)*BW),y=cy0+Math.floor(hash(j,i,8)*BH);if(ph<.35){bx.fillRect(x,y,1,1);bx.fillRect(x-1-Math.floor(ph*4),y-1,1,1);bx.fillRect(x+1+Math.floor(ph*4),y-1,1,1)}}}   // splashes on the ground
 
 /* ---------------- camera ---------------- */
-function updCam(snap){const P=G.player,vw=BW,vh=BH;let tx,ty;
+function updCam(snap){const P=G.player,vw=BW,vh=BH;let tx,ty;if(G.yelu&&!G.menuMode){const c=YL.cam(vw,vh);if(snap||!CAM.init){CAM.x=c.x;CAM.y=c.y;CAM.init=true}else{CAM.x+=(c.x-CAM.x)*.12;CAM.y+=(c.y-CAM.y)*.12}return}
   if(G.menuMode){tx=G.menuCam.x-vw/2;ty=G.menuCam.y-vh/2}else if(P.spot&&P.spot.type!=='tree'){tx=P.x-vw/2;ty=P.y+30-vh/2} /* hidden: look at the floor in front of the door */
-  else{tx=P.x+Math.cos(P.face)*14-vw/2;ty=P.y-10+Math.sin(P.face)*10-vh/2}
+  else{const L=P.lead||0,a=P.moveFace??P.face;tx=P.x+Math.cos(a)*L-vw/2;ty=P.y-10+Math.sin(a)*L*.8-vh/2}   // a small lead toward where you are walking (not where the mouse points), so turning the torch never drags the view
   tx=vw>=WW?(WW-vw)/2:clamp(tx,0,WW-vw);ty=vh>=WH?(WH-vh)/2:clamp(ty,-20,WH-vh);
   if(snap||!CAM.init){CAM.x=tx;CAM.y=ty;CAM.init=true}else{CAM.x+=(tx-CAM.x)*.12;CAM.y+=(ty-CAM.y)*.12}}
 const toS=(x,y,cx0,cy0)=>[(x-cx0)*CAM.z,(y-cy0)*CAM.z];
@@ -845,6 +910,7 @@ function draw(){
   if(G.apparition)ents.push({y:G.apparition.y||0,d:()=>drawApparition(G.apparition)});
   if(G.sc.truck)ents.push({y:G.sc.truck[1]+30,d:drawTruckPx});
   {const D=decorPlan();for(const it of D.items)if(inView(it.x,it.y,70))ents.push({y:it.sy||it.y,d:()=>drawDecor(it)})}
+  if(G.yelu)YL.ents(ents,inView);
   ents.sort((a,b)=>a.y-b.y).forEach(e=>e.d());
   drawChunks('o',cx0,cy0);
   for(const w of DEC.wires)if(w.x<cx0+BW&&w.x+w.c.width>cx0&&w.y<cy0+BH&&w.y+w.c.height>cy0)bx.drawImage(w.c,w.x,w.y);   // power lines sag between the poles, above everything
@@ -882,10 +948,15 @@ function draw(){
   if(G.sceneId==='village')for(let gx=57;gx<=73;gx+=3)for(let gy=5;gy<=13;gy+=3)if(tileAt(gx,gy)==='G'&&hash(gx,gy,5)<.35){bx.fillStyle=Math.sin(G.t*9+gx)>0?'#ffd27a':'#ffb347';bx.fillRect(gx*TS+3,gy*TS+10,1,1);bx.fillRect(gx*TS+18,gy*TS+10,1,1)}
   // eyes in the dark: you notice them before you see them
   for(const m of G.monsters){if(m.hidden||!inView(m.x,m.y,20)||m.vis>.6)continue;const d=dist(m,P),ex=Math.round(m.x),ey=Math.round(m.y);
+    // something standing just outside the light: a black shape with a cold edge, darker than the dark around it
+    if(d<7*TS&&!(m.type==='suigui'&&inWater(m))&&!G.menuMode){const dir=faceDir(m.face),sp=darkShape(monSprite(m.type,dir,0,'',false));const a=(.4+.55*(1-d/(7*TS)))*(1-(m.vis||0));blit(sp,m.x,m.y+2,dir==='l',a)}
+    if((G.t*.37+m.type.length*.61)%3<.12)continue;   // they blink
     if(m.type==='tiger'&&d<9*TS&&m.state!=='flee'){bx.fillStyle='rgba(255,210,60,.95)';bx.fillRect(ex-3,ey-17,2,1);bx.fillRect(ex+1,ey-17,2,1)}
     if(m.type==='kuchi'&&m.state==='chase'){bx.fillStyle='rgba(220,60,40,.85)';bx.fillRect(ex-2,ey-19,4,1)}
     if(m.type==='suigui'&&d<10*TS&&m.state!=='drag'){bx.fillStyle='rgba(220,250,240,.7)';bx.fillRect(ex,ey-6,1,1)}
-    if(m.type==='mosin'&&d<6*TS){bx.fillStyle=`rgba(242,208,74,${.6+Math.sin(G.t*8)*.3})`;bx.fillRect(ex-2,ey-12,1,1);bx.fillRect(ex+2,ey-12,1,1)}}
+    if(m.type==='mosin'&&d<6*TS){bx.fillStyle=`rgba(242,208,74,${.6+Math.sin(G.t*8)*.3})`;bx.fillRect(ex-2,ey-12,2,1);bx.fillRect(ex+2,ey-12,2,1)}
+    if(m.type==='kuchi'&&m.state!=='chase'&&d<8*TS){bx.fillStyle='rgba(216,212,204,.35)';bx.fillRect(ex-1,ey-19,3,1);if(G.t%1.3<.08){bx.fillStyle='rgba(230,236,240,.9)';bx.fillRect(ex+4,ey-12,1,1)}}   // the mask, and now and then the scissors
+    if(m.type==='jiang'&&d<8*TS){bx.fillStyle='rgba(106,90,32,.6)';bx.fillRect(ex-1,ey-22,2,3)}}   // the paper strip on its brow
   // sounds made visible
   for(const f of G.fx){const k=f.t/f.life;if(f.type==='step'){bx.fillStyle=`rgba(208,72,44,${(f.big?.7:.45)*(1-k)})`;const r=Math.round(3+k*(f.big?16:10));for(let i=0;i<12;i++){const a=i/12*6.28;bx.fillRect(Math.round(f.x+Math.cos(a)*r),Math.round(f.y+Math.sin(a)*r*.6),1,1)}}
     if(f.type==='ring'){bx.fillStyle=`rgba(231,217,177,${.22*(1-k)})`;const r=Math.round(k*f.r);for(let i=0;i<24;i++){const a=i/24*6.28;bx.fillRect(Math.round(f.x+Math.cos(a)*r),Math.round(f.y+Math.sin(a)*r*.6),1,1)}}}
@@ -894,6 +965,7 @@ function draw(){
       bx.fillStyle='rgba(231,217,177,.55)';for(let i=1;i<=14;i++){const k=i/14;bx.fillRect(Math.round(P.x+Math.cos(a)*d*k),Math.round(P.y-8+Math.sin(a)*d*k-Math.sin(k*Math.PI)*d*.18),1,1)}
       const lx=P.x+Math.cos(a)*d,ly=P.y+Math.sin(a)*d,r=type==='firecracker'?7:4;for(let i=0;i<12;i++){const aa=i/12*6.28;bx.fillRect(Math.round(lx+Math.cos(aa)*r),Math.round(ly+Math.sin(aa)*r*.6),1,1)}}
     if(G.tut)TUT.drawWorld(bx)}
+  if(G.yelu&&!G.menuMode)YL.over(bx);
   bx.save();bx.setTransform(1,0,0,1,0,0);
   if(G.final&&!G.over&&!G.menuMode){bx.globalCompositeOperation='multiply';bx.fillStyle=`rgb(255,${150+Math.round(Math.sin(G.t*6)*12)},${140+Math.round(Math.sin(G.t*6)*12)})`;bx.fillRect(0,0,BW,BH)}   // the last minute: everything goes the colour of a temple lantern
   bx.globalCompositeOperation='source-over';const gt=grainTex(),go=RM?0:(performance.now()/83|0),gx=-(hash(go,1,5)*64|0),gy=-(hash(go,2,5)*64|0);for(let y=gy;y<BH;y+=64)for(let x=gx;x<BW;x+=64)bx.drawImage(gt,x,y);bx.restore();   // film grain, one art pixel per speck
@@ -905,9 +977,9 @@ function draw(){
 /* ---------------- screen layer: text and markers at full resolution ---------------- */
 function drawBubble(b,cx0,cy0){
   const P=G.player,d=Math.hypot(b.x-P.x,b.y-P.y);if(d>18*TS&&b.kind!=='info')return;
-  const a=Math.min(1,(b.life-b.t)/.4,b.t/.12);ctx.save();ctx.globalAlpha=a;const fs=b.kind==='monster'?16:14;ctx.font=`${fs}px ${FONT_D}`;
+  const a=Math.min(1,(b.life-b.t)/.4,b.t/.12);ctx.save();ctx.globalAlpha=a;const fs=pxSize(true);ctx.font=`${fs}px ${FONT_P}`;
   const w=ctx.measureText(b.text).width+18,h=fs+12;const[sx,sy]=toS(b.x,b.y-(b.ent&&b.ent.def?34:b.ent&&b.ent.child?22:30),cx0,cy0);
-  const x=clamp(sx,w/2+8,SW-w/2-8),y=clamp(sy,h/2+56,SH-h/2-96),off=Math.abs(x-sx)>2||Math.abs(y-sy)>2;
+  const x=Math.round(clamp(sx,w/2+8,SW-w/2-8)),y=Math.round(clamp(sy,h/2+56,SH-h/2-96)),off=Math.abs(x-sx)>2||Math.abs(y-sy)>2;
   const col=b.kind==='monster'?'#f06a4e':b.kind==='scream'?'#f6ead0':b.kind==='info'?PAL.gold:PAL.paper;
   if(b.kind==='monster'){ctx.fillStyle='rgba(12,6,6,.9)';ctx.fillRect(x-w/2,y-h/2,w,h);ctx.fillStyle='#8a1e12';ctx.fillRect(x-w/2,y-h/2,3,h);ctx.fillStyle=col}
   else if(b.kind==='info'||b.kind==='scream'){ctx.fillStyle='rgba(10,10,12,.82)';ctx.fillRect(x-w/2,y-h/2,w,h);ctx.fillStyle=col}
@@ -915,25 +987,27 @@ function drawBubble(b,cx0,cy0){
   ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(b.text,x,y+1);
   if(off){const ang=Math.atan2(sy-y,sx-x);ctx.fillStyle=col;ctx.save();ctx.translate(x+Math.cos(ang)*(w/2+8),y+Math.sin(ang)*(h/2+8));ctx.rotate(ang);ctx.beginPath();ctx.moveTo(6,0);ctx.lineTo(-3,-5);ctx.lineTo(-3,5);ctx.fill();ctx.restore()}
   ctx.restore()}
-function drawPrompt(it,cx0,cy0){if(!it)return;ctx.save();ctx.font=`14px ${FONT_D}`;const w=ctx.measureText(it.label).width+42,h=28;let[x,y]=toS(it.x,it.y-38,cx0,cy0);x=clamp(x,w/2+8,SW-w/2-8);
-  ctx.fillStyle='rgba(231,217,177,.96)';ctx.fillRect(x-w/2,y-h/2,w,h);ctx.fillStyle='#2b1f14';ctx.fillRect(x-w/2+5,y-10,20,20);ctx.fillStyle=PAL.paper;ctx.font=`bold 12px ${FONT_B}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(UI.touch?'互':'E',x-w/2+15,y+1);
-  ctx.fillStyle=it.fn?'#2b1f14':'#8a7a5a';ctx.font=`14px ${FONT_D}`;ctx.fillText(it.label,x+12,y+1);ctx.restore()}
-function edgeArrow(wx,wy,label,col,cx0,cy0,urgent){const[sx,sy]=toS(wx,wy,cx0,cy0);if(sx>20&&sx<SW-20&&sy>70&&sy<SH-100)return;const cx=SW/2,cy=SH/2,a=Math.atan2(sy-cy,sx-cx),k=Math.min((SW/2-40)/Math.abs(Math.cos(a)||1e-6),(SH/2-110)/Math.abs(Math.sin(a)||1e-6));
-  ctx.save();ctx.translate(cx+Math.cos(a)*k,cy+Math.sin(a)*k);const pu=urgent&&!RM?Math.sin(G.t*Math.PI*2*1.6):0;ctx.globalAlpha=urgent?.7+pu*.3:.8+Math.sin(G.t*4)*.2;ctx.fillStyle=col;ctx.rotate(a);if(urgent){const sc=1.15+pu*.2;ctx.scale(sc,sc)}ctx.beginPath();ctx.moveTo(11,0);ctx.lineTo(-5,-8);ctx.lineTo(-5,8);ctx.closePath();ctx.fill();if(urgent){const sc=1.15+pu*.2;ctx.scale(1/sc,1/sc)}ctx.rotate(-a);ctx.font=`${urgent?'bold 15px':'14px'} ${FONT_D}`;ctx.textAlign='center';ctx.shadowColor='#000';ctx.shadowBlur=6;ctx.fillText(label,-Math.cos(a)*26,-Math.sin(a)*26+5);ctx.restore()}
+function drawPrompt(it,cx0,cy0){if(!it)return;ctx.save();ctx.font=`${pxSize(true)}px ${FONT_P}`;const w=Math.round(ctx.measureText(it.label).width)+42,h=pxSize(true)+10;let[x,y]=toS(it.x,it.y-38,cx0,cy0);x=Math.round(clamp(x,w/2+8,SW-w/2-8));y=Math.round(y);
+  ctx.fillStyle='rgba(231,217,177,.96)';ctx.fillRect(x-w/2,y-h/2,w,h);ctx.fillStyle='#2b1f14';ctx.fillRect(x-w/2+5,y-10,20,20);ctx.fillStyle=PAL.paper;ctx.font=`${pxSize(false)}px ${FONT_P}`;ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(UI.touch?'互':'E',x-w/2+15,y+1);
+  ctx.fillStyle=it.fn?'#2b1f14':'#8a7a5a';ctx.font=`${pxSize(true)}px ${FONT_P}`;ctx.fillText(it.label,x+12,y+1);ctx.restore()}
+function edgeArrow(wx,wy,label,col,cx0,cy0,urgent){const[sx,sy]=toS(wx,wy,cx0,cy0);if(sx>20&&sx<SW-20&&sy>70&&sy<SH-100)return;const cx=SW/2,cy=SH/2,a=Math.atan2(sy-cy,sx-cx),k=Math.min((SW/2-40)/Math.abs(Math.cos(a)||1e-6),(SH/2-(Math.sin(a)>.5?150:110))/Math.abs(Math.sin(a)||1e-6));   // pointing down: stop above the subtitles and the item tip
+  ctx.save();ctx.translate(cx+Math.cos(a)*k,cy+Math.sin(a)*k);const pu=urgent&&!RM?Math.sin(G.t*Math.PI*2*1.6):0;ctx.globalAlpha=urgent?.7+pu*.3:.8+Math.sin(G.t*4)*.2;ctx.fillStyle=col;ctx.rotate(a);if(urgent){const sc=1.15+pu*.2;ctx.scale(sc,sc)}ctx.beginPath();ctx.moveTo(11,0);ctx.lineTo(-5,-8);ctx.lineTo(-5,8);ctx.closePath();ctx.fill();if(urgent){const sc=1.15+pu*.2;ctx.scale(1/sc,1/sc)}ctx.rotate(-a);ctx.font=`${pxSize(urgent)}px ${FONT_P}`;ctx.textAlign='center';ctx.shadowColor='#000';ctx.shadowBlur=6;ctx.fillText(label,-Math.cos(a)*26,-Math.sin(a)*26+5);ctx.restore()}
 function drawScreen(cx0,cy0){
   const P=G.player;ctx.setTransform(S,0,0,S,0,0);
   if(!G.menuMode){
-    ctx.font=`13px ${FONT_D}`;ctx.textAlign='center';ctx.shadowColor='#000';ctx.shadowBlur=4;
-    for(const h of G.humans){if(h.isPlayer||!alive(h))continue;const near=dist(h,P)<5*TS;if(!(h.met||near))continue;const lx=h.spot?h.spot.x:h.x,ly=(h.spot?h.spot.y:h.y)-(h.child?24:30);const[sx,sy]=toS(lx,ly,cx0,cy0);if(sx<-40||sx>SW+40||sy<-20||sy>SH+20)continue;
+    ctx.font=`${pxSize(false)}px ${FONT_P}`;ctx.textAlign='center';ctx.shadowColor='#000';ctx.shadowBlur=4;
+    for(const h of G.humans){if(h.isPlayer||!alive(h))continue;const near=dist(h,P)<5*TS;if(!(h.met||near))continue;if(G.bubbles.some(b=>b.ent===h&&b.t<b.life))continue;   // while they are speaking, the bubble is their label
+      const lx=h.spot?h.spot.x:h.x,ly=(h.spot?h.spot.y:h.y)-(h.child?24:30);const[sx,sy]=toS(lx,ly,cx0,cy0);if(sx<-40||sx>SW+40||sy<-20||sy>SH+20)continue;
       const tag=h.lured?'被牽走':h.drown?'溺水':h.state==='follow'?'':h.state==='stay'?'等你':h.state==='hide'?'躲著':h.state==='panic'?'！':h.state==='freeze'?'不敢動':'';const q=h.quirk&&h.met?`（${QUIRKS[h.quirk].name}）`:'';
       ctx.fillStyle=(h.lured||h.drown)?'#f06a4e':h.state==='follow'?PAL.gold:'rgba(231,217,177,.85)';ctx.fillText(h.name+q+(tag?'・'+tag:''),sx,sy);
       if(h.holding&&h.breath>0){ctx.strokeStyle='rgba(180,210,230,.85)';ctx.lineWidth=2;ctx.beginPath();ctx.arc(sx,sy+14,7,-Math.PI/2,-Math.PI/2+6.28*h.breath/h.maxBreath);ctx.stroke()}}
     ctx.shadowBlur=0;
     for(const m of G.monsters){if(m.hidden||!(m.alertT>0&&m.target===P))continue;const[sx,sy]=toS(m.x,m.y-36,cx0,cy0);ctx.save();ctx.globalAlpha=Math.min(1,m.alertT*2);ctx.fillStyle='#f06a4e';ctx.font=`bold 24px ${FONT_D}`;ctx.textAlign='center';ctx.fillText('！',sx,sy-(1.2-m.alertT)*10);ctx.restore()}
+    if(P.stam<P.maxStam-.05&&alive(P)&&!P.spot){const[sx,sy]=toS(P.x,P.y+12,cx0,cy0),w=30;ctx.fillStyle='rgba(0,0,0,.6)';ctx.fillRect(sx-w/2-1,sy-1,w+2,5);ctx.fillStyle=P.tired>0?'#f06a4e':'#e8d9a8';ctx.fillRect(sx-w/2,sy,w*P.stam/P.maxStam,3)} // sprint left
     if((P.holding||P.breath<P.maxBreath-.05)&&alive(P)){const[sx,sy]=toS(P.x,P.y-12,cx0,cy0);ctx.strokeStyle='rgba(0,0,0,.55)';ctx.lineWidth=5;ctx.beginPath();ctx.arc(sx,sy,24,0,7);ctx.stroke();ctx.strokeStyle=P.gasp>0?'#f06a4e':P.holding?'#a9d0e6':'rgba(169,208,230,.5)';ctx.lineWidth=3;ctx.beginPath();ctx.arc(sx,sy,24,-Math.PI/2,-Math.PI/2+6.28*P.breath/P.maxBreath);ctx.stroke()}
     if(P.climb>0){const[sx,sy]=toS(P.x,P.y-30,cx0,cy0);ctx.strokeStyle=PAL.gold;ctx.lineWidth=3;ctx.beginPath();ctx.arc(sx,sy,9,-Math.PI/2,-Math.PI/2+Math.PI*2*(1-P.climb/HIDES.tree.enter));ctx.stroke()}
     drawPrompt(G.over?null:interactTarget(),cx0,cy0);
-    if(alive(P)){const f=G.humans.some(h=>!h.isPlayer&&h.state==='follow'&&alive(h));if(G.sc.truck&&(f||G.humans.every(h=>h.isPlayer||!alive(h)||h.saved)))edgeArrow(G.sc.truck[0],G.sc.truck[1]-10,'貨車',PAL.jade,cx0,cy0);
+    if(alive(P)){const f=G.humans.some(h=>!h.isPlayer&&h.state==='follow'&&alive(h));if(G.sc.truck&&!G.yelu&&(f||G.humans.every(h=>h.isPlayer||!alive(h)||h.saved)))edgeArrow(G.sc.truck[0],G.sc.truck[1]-10,'貨車',PAL.jade,cx0,cy0);
       for(const h of G.humans)if(!h.isPlayer&&alive(h)&&h.reveal>G.t)edgeArrow(h.x,h.y,h.name,PAL.gold,cx0,cy0,G.final)}/* last call: the arrows pulse harder (1.6 Hz) */
   }
   {const said=new Set();for(let i=G.bubbles.length-1;i>=0;i--){const b=G.bubbles[i];if(b.ent){if(said.has(b.ent))continue;said.add(b.ent)}drawBubble(b,cx0,cy0)}}/* one bubble per speaker: the newest wins */

@@ -14,6 +14,8 @@ function shichen(t){const h=nightHour(t);return h<25?'子時':h<27?'丑時':'寅
 function clockCN(t){const h=nightHour(t),hh=Math.floor(h)%24,mm=Math.floor((h%1)*60);const pre=hh>=23?'深夜':'凌晨';return `${pre}${cnNum(hh===0?12:hh>12?hh-12:hh)}點${mm?cnNum(mm)+'分':''}`}
 
 /* ---------------- UI ---------------- */
+// rule text names keyboard keys; on a phone say the button instead
+const devRule=r=>IS_TOUCH?r.replace('按住空白鍵','按住「屏息」').replace('（按住空白鍵）','（按住「屏息」）'):r;
 const UI={touch:IS_TOUCH,joy:null,cache:'',tipT:0,subs:[],
   seenBook:new Set(store.get('kaidan-codex',[])),
   sub(text,kind){const box=$('#sub');const d=document.createElement('div');d.textContent=text;d.className=kind||'';box.appendChild(d);this.subs.push({el:d,t:kind==='death'||kind==='regret'?5.5:4.2});
@@ -25,26 +27,26 @@ const UI={touch:IS_TOUCH,joy:null,cache:'',tipT:0,subs:[],
     if(this.seenBook.has(type)){UI.sub(`${MONSTERS[type].name}出來了。`,'omen');return}
     this.seenBook.add(type);store.set('kaidan-codex',[...this.seenBook]);
     const d=MONSTERS[type];$('#meeteyebrow').textContent='新收進怪談錄';$('#meetname').textContent=d.name;$('#meetorigin').textContent=d.origin;$('#meetblurb').textContent=d.blurb;
-    $('#meetrules').innerHTML=d.rules.map(r=>`<li>${r}</li>`).join('');drawPortrait(type,$('#meetcv').getContext('2d'),380);
-    G.paused=true;releaseKeys();$('#meet').hidden=false;SND.sting();setTimeout(()=>$('#meetok').focus({preventScroll:true}),30)},
+    $('#meetrules').innerHTML=d.rules.map(r=>`<li>${devRule(r)}</li>`).join('');drawPortrait(type,$('#meetcv').getContext('2d'),380);
+    G.paused=true;releaseKeys();$('#meet').hidden=false;SND.sting();setTimeout(()=>{if(!IS_TOUCH)$('#meetok').focus({preventScroll:true})},30)},
   closeMeet(){$('#meet').hidden=true;if(G&&!G.over)G.paused=false;cv.focus&&cv.focus({preventScroll:true})},
   rule(type){
     if(KT.manual||G.menuMode)return;const d=APPARITIONS[type];
     if(this.seenBook.has(type)){UI.sub(d.rule,'omen');return}
     this.seenBook.add(type);store.set('kaidan-codex',[...this.seenBook]);
     $('#meeteyebrow').textContent='新收進怪談錄・規矩';$('#meetname').textContent=d.name;$('#meetorigin').textContent=d.origin;$('#meetblurb').textContent=d.blurb;
-    $('#meetrules').innerHTML=`<li><b>${d.rule}</b></li>`+d.rules.map(r=>`<li>${r}</li>`).join('');drawPortrait(type,$('#meetcv').getContext('2d'),380);
-    G.paused=true;releaseKeys();$('#meet').hidden=false;SND.sting();setTimeout(()=>$('#meetok').focus({preventScroll:true}),30)},
+    $('#meetrules').innerHTML=`<li><b>${d.rule}</b></li>`+d.rules.map(r=>`<li>${devRule(r)}</li>`).join('');drawPortrait(type,$('#meetcv').getContext('2d'),380);
+    G.paused=true;releaseKeys();$('#meet').hidden=false;SND.sting();setTimeout(()=>{if(!IS_TOUCH)$('#meetok').focus({preventScroll:true})},30)},
   recordNight(){if(G.recorded||G.tut||!G.result||!G.result.pAlive)return null;/* only a night you lived through unlocks the next almanac */G.recorded=true;const before=modPool().map(m=>m.id);const n=+store.get('kaidan-nights',0)+1;store.set('kaidan-nights',n);const after=modPool();return after.find(m=>!before.includes(m.id))||null},
   showDeath(){
     const R=G.result;if(!R)return;const type=(G.scare&&G.scare.type)||'kuchi',name=MONSTERS[type]?MONSTERS[type].name:APPARITIONS[type].name;
     const how=R.kind==='gone'?(type==='funeral'?`你跟著${name}走了`:`你被${name}帶走了`):`你被${name}抓住了`;
     const tips=MONSTERS[type]?MONSTERS[type].rules:[APPARITIONS[type].rule];
     if(inRun())endRunNight();logNight();
-    $('#deathwho').textContent=inRun()?`${NIGHTS[G.runN].name}・${shichen(G.t)}・${RUN.lives>0?`紙人替你死了，替身剩 ${RUN.lives} 個`:RUN.lives===0?'最後一個替身燒掉了，再被抓七夜就結束':'替身燒完了'}`:`${G.tut?'教學':'單夜・'+shichen(G.t)}・救出 ${G.saved} 人`;
+    $('#deathwho').innerHTML=inRun()?`${NIGHTS[G.runN].name}・${shichen(G.t)}・<span class="nb">${RUN.lives>0?`紙人替你死了，替身剩 ${RUN.lives} 個`:RUN.lives===0?'最後一個替身燒掉了，再被抓七夜就結束':'替身燒完了'}</span>`:`${G.tut?'教學':'單夜・'+shichen(G.t)}・救出 ${G.saved} 人`;
     $('#dretry').textContent=inRun()?runRetryLabel()+hint('（R）'):'立刻再來'+hint('（R）');/* keep the monster's name on one line */{const el=$('#deathline'),i=how.indexOf(name);el.textContent='';if(i<0)el.textContent=how;else{const nb=document.createElement('span');nb.className='nb';nb.textContent=name;el.append(how.slice(0,i),nb,how.slice(i+name.length))}}$('#deathtip').textContent='下次記得：'+pick(tips);
     drawPortrait(type,$('#deathcv').getContext('2d'),320,false,CLOSEUP);this.unlocked=this.recordNight();
-    $('#hud').hidden=true;$('#touch').hidden=true;$('#death').hidden=false;setTimeout(()=>$('#dretry').focus({preventScroll:true}),40)},
+    $('#hud').hidden=true;$('#touch').hidden=true;$('#death').hidden=false;setTimeout(()=>{if(!IS_TOUCH)$('#dretry').focus({preventScroll:true})},40)},
   tutFail(m){TUT.fail=m.def.name},
   showEnd(){
     const R=G.result,P=G.player,sv=G.humans.filter(h=>!h.isPlayer);if(!R)return;$('#death').hidden=true;if(inRun())endRunNight();logNight();if(this.unlocked===undefined||!G.recordedShown){this.unlocked=G.recorded?this.unlocked:this.recordNight();G.recordedShown=true}
@@ -67,24 +69,26 @@ const UI={touch:IS_TOUCH,joy:null,cache:'',tipT:0,subs:[],
     else paras.push('據了解，當晚村內一片死寂，司機一路未遇上任何村民。');
     const fate=sv.filter(h=>h.dead||h.gone).map(h=>h.dead?`${h.name}遭${h.killer||'不明之物'}所害`:`${h.name}失蹤`);const stuck=R.kind==='dawn'?0:sv.filter(h=>alive(h)&&!h.saved).length;
     paras.push((met.length?`村民指稱，當晚出沒的有${met.join('、')}。`:'')+(fate.length?`目前確認${fate.join('、')}。`:'')+(stuck?`其餘${cnNum(stuck)}人仍受困村內，下落待查。`:'')+(!fate.length&&!stuck?'本次救援無人傷亡。':'')+(R.kind==='dead'||R.kind==='gone'?'司機本人至今下落不明，警方呼籲民眾入夜勿近山腳村。':'司機天亮前已駕車離開，婉拒受訪。'));
-    const st=G.stats||{};if(st.nearMiss||st.closest<2.5)paras.push(`據了解，司機當晚${st.nearMiss?`有 ${cnNum(Math.min(st.nearMiss,99))} 次與怪談擦身而過`:''}${st.nearMiss&&st.closest<2.5?'，':''}${st.closest<2.5?`最近一次只差${st.closest<1.2?'一步':'兩三步'}`:''}。`);
-    if(G.runFailed)paras.push('據悉，司機當晚未能帶回任何一名村民。');
-    if(this.unlocked&&!inRun())paras.push(`另據農民曆記載，下一夜可能出現「${this.unlocked.name}」：${this.unlocked.desc}`);
-    $('#article').innerHTML=paras.map(p=>`<p>${p}</p>`).join('')+`<p style="text-align:right;color:#5b4a32">本報記者　林振昌／山腳報導</p>`;
+    const st=G.stats||{};if(st.nearMiss||st.closest<2.5)paras.push(`據了解，司機當晚${st.nearMiss?`有${cnNum(Math.min(st.nearMiss,99))}次與怪談擦身而過`:''}${st.nearMiss&&st.closest<2.5?'，':''}${st.closest<2.5?`最近一次只差${st.closest<1.2?'一步':'兩三步'}`:''}。`);
+    if(G.runFailed)paras.push(G.leftEarly&&G.saved?'據悉，司機當晚未到寅時便驅車下山，仍有村民困在村中。':'據悉，司機當晚未能帶回任何一名村民。');
+    if(this.unlocked&&!inRun())paras.push(`另據農民曆記載，下一夜可能出現「<span class="nb">${this.unlocked.name}</span>」：${this.unlocked.desc}`);
+    $('#article').innerHTML=paras.map(p=>`<p>${p}</p>`).join('')+`<p style="text-align:right;color:var(--ink-2)">本報記者　林振昌／山腳報導</p>`;
     $('#facts').innerHTML=[['上車',saved],['撐到天亮',dawn],['罹難',R.dead],['失蹤',R.gone],inRun()?['替身',Math.max(0,RUN.lives)]:[R.isBest?'新紀錄':'分數',R.score]].map(([a,b])=>`<div><span>${a}</span><b>${b}</b></div>`).join('');
     const quote=(pickd.find(l=>l.tag==='absurd')||pickd.find(l=>l.tag==='regret')||pickd.find(l=>l.tag==='clutch')||{text:G.mod.desc}).text;
     G.shareText=`《山腳日報》${head}\n「${third(quote)}」\n——怪談救援・七夜山腳村（${G.mod.name}之夜）`;
     $('#again').textContent=(inRun()?R.pAlive&&!G.runFailed?(RUN.done?'看七夜的結局':'天亮了，往下一夜'):runRetryLabel():'再入一夜')+hint('（R）');$('#replay').hidden=!!inRun();
-    $('#sharemsg').textContent='';$('#hud').hidden=true;$('#touch').hidden=true;$('#end').hidden=false;setTimeout(()=>$('#again').focus({preventScroll:true}),40)},
+    $('#sharemsg').textContent='';$('#hud').hidden=true;$('#touch').hidden=true;$('#end').hidden=false;setTimeout(()=>{if(!IS_TOUCH)$('#again').focus({preventScroll:true})},40)},
 };
 function releaseKeys(){for(const k in keys)keys[k]=false;G&&(G.touchRun=G.touchBreath=false);touchVec=null;UI.joy=null}
 
 /* ---------------- HUD ---------------- */
 function goalText(){const P=G.player;if(P.lured)return'一直按鍵，掙脫！';if(P.drown)return'一直按鍵，踢開那隻手！';if(P.spot)return`躲著。${K('E','互動')}出來`;
+  if(G.siege){const S=G.siege;return`<em>${S.h.name}</em>被困在${dirName(P,S.h)}邊・<span class="nb">還撐 <em>${Math.ceil(S.t)}</em> 秒</span>`}
   const sv=G.humans.filter(h=>!h.isPlayer),f=sv.filter(h=>h.state==='follow'&&alive(h)).length;
   if(f)return`把 <em>${f}</em> 人帶回村口的貨車`;if(sv.every(h=>!alive(h)))return'回到貨車，離開這裡';
   const st=sv.filter(h=>alive(h)&&h.met&&h.state!=='follow').length;if(st)return`有 <em>${st}</em> 人在等你回去接（${K('G','喊人')}）`;return'循著「救命」聲找人'}
 function hud(dt){
+  if(G.yelu)return YL.hud(dt);
   const P=G.player,n=G.tut?1:G.night,k=G.tut?0:clamp(G.t/n,0,1);
   const sh=G.tut?'教學':shichen(G.t),dawn=G.tut?'不會天亮':`${inRun()?NIGHTS[G.runN].name+'・':''}雞啼前 ${clockStr(n-G.t)}`;
   const tags=G.humans.filter(h=>!h.isPlayer).map((h,i)=>{const st=h.saved?'saved':h.dead?'dead':h.gone?'gone':h.state==='follow'?'follow':'';const known=h.met||h.saved||!alive(h);
@@ -101,44 +105,46 @@ function hud(dt){
 /* ---------------- codex / pause / title ---------------- */
 const CODEX=[...MONSTER_ORDER,...APPARITION_ORDER],lore=t=>MONSTERS[t]||APPARITIONS[t];
 function entryHTML(type,known,id){const d=lore(type),isRule=!!APPARITIONS[type];
-  return known?`<div class="entry"><canvas width="168" height="168" data-p="${type}" id="${id}"></canvas><div><h4>${d.name}</h4><small>${d.origin}${isRule?'・規矩':''}</small><ul>${isRule?`<li><b>${d.rule}</b></li>`:''}${d.rules.map(r=>`<li>${r}</li>`).join('')}</ul></div></div>`
+  return known?`<div class="entry"><canvas width="168" height="168" data-p="${type}" id="${id}"></canvas><div><h4>${d.name}</h4><small>${d.origin}${isRule?'・規矩':''}</small><ul>${isRule?`<li><b>${d.rule}</b></li>`:''}${d.rules.map(r=>`<li>${devRule(r)}</li>`).join('')}</ul></div></div>`
   :`<div class="entry unk"><canvas width="168" height="168" data-s="${type}" id="${id}"></canvas><div><h4>？？？</h4><small>尚未遇見</small><ul><li>傳聞：「${d.omen==='……'?'有人在背後叫你。':d.omen}」</li></ul></div></div>`}
 function paintEntries(root){root.querySelectorAll('canvas').forEach(c=>{const g=c.getContext('2d');if(c.dataset.p)drawPortrait(c.dataset.p,g,168);else drawPortrait(c.dataset.s,g,168,true)})}
 function openCodex(){const box=$('#entries');box.innerHTML=CODEX.map((t,i)=>entryHTML(t,UI.seenBook.has(t),'cx'+i)).join('');paintEntries(box);
-  $('#codexcount').textContent=`已記下 ${[...UI.seenBook].filter(t=>CODEX.includes(t)).length}／${CODEX.length}`;$('#codex').hidden=false;setTimeout(()=>$('#codexclose').focus({preventScroll:true}),30)}
+  $('#codexcount').textContent=`已記下 ${[...UI.seenBook].filter(t=>CODEX.includes(t)).length}／${CODEX.length}`;$('#codex').hidden=false;setTimeout(()=>{if(!IS_TOUCH)$('#codexclose').focus({preventScroll:true})},30)}
 const KEYS_DESK=[['WASD','移動'],['Shift','奔跑（腳步聲很大）'],['C','蹲下：安靜；草叢裡蹲著看不見'],['Space','按住屏息：殭屍聽不到你；躲在櫃子裡被敲門時也要屏息'],['E','互動：躲、叫人、關門、敲鐘、回答'],['左鍵／F','使用道具（往滑鼠方向）'],['Q／1–5／滾輪','切換道具'],['G','叫同伴原地等／跟上'],['M','聲音開關'],['R','直接換一夜']];
 const KEYS_TOUCH=[['左半邊拖曳','移動'],['跑','按住奔跑'],['蹲','蹲下／站起'],['屏息','按住屏息；躲在櫃子裡被敲門時也要按住'],['互動','躲、叫人、關門、敲鐘、回答'],['道具','往面對方向使用；點下方格子切換'],['喊人','叫同伴原地等／跟上']];
-function setPause(on){if(!G||G.over||G.menuMode||!$('#meet').hidden)return;G.paused=on;$('#pause').hidden=!on;releaseKeys();
+function setPause(on){if(!G||G.over||G.menuMode||!$('#meet').hidden)return;if(G.yelu){G.paused=on;$('#pause').hidden=!on;releaseKeys();YL_RUN.pauseFill(on);return}G.paused=on;$('#pause').hidden=!on;releaseKeys();
   $('#restart').hidden=!!inRun();$('#totitle').textContent=inRun()?'回標題（燒一個替身）':'回到標題'; // in 七夜 leaving a night costs a paper stand-in
   if(on){$('#pauseinfo').textContent=inRun()?`${NIGHTS[G.runN].name}・${shichen(G.t)}・${G.mod.name}・替身 ${RUN.lives}`:`${G.tut?'教學':'單夜・'+shichen(G.t)}・${G.mod.name}`;
-    const seen=Object.keys(G.seen);const box=$('#pentries');box.innerHTML=seen.length?seen.map((t,i)=>entryHTML(t,true,'pe'+i)).join(''):'<p style="grid-column:1/-1;margin:0;font-size:14px;color:#5b4a32">今夜還沒有怪談出現。最好別等到它們來。</p>';paintEntries(box);
-    closeupLabel();$('#pkeys').innerHTML=(IS_TOUCH?KEYS_TOUCH:KEYS_DESK).map(([a,b])=>`<div><kbd>${a}</kbd><span>${b}</span></div>`).join('');setTimeout(()=>$('#resume').focus({preventScroll:true}),30)}}
+    const seen=Object.keys(G.seen);const box=$('#pentries');box.innerHTML=seen.length?seen.map((t,i)=>entryHTML(t,true,'pe'+i)).join(''):'<p style="grid-column:1/-1;margin:0;font-size:14px;color:var(--ink-2)">今夜還沒有怪談出現。最好別等到它們來。</p>';paintEntries(box);
+    closeupLabel();$('#pkeys').innerHTML=(IS_TOUCH?KEYS_TOUCH:KEYS_DESK).map(([a,b])=>`<div><kbd>${a}</kbd><span>${b}</span></div>`).join('');setTimeout(()=>{if(!IS_TOUCH)$('#resume').focus({preventScroll:true})},30)}}
 // 驚嚇特寫: the capture lunge can be turned off; then only a short red fade plays
 function closeupLabel(){const b=$('#closeup');b.textContent=CLOSEUP?'驚嚇特寫：開':'驚嚇特寫：關';b.setAttribute('aria-pressed',CLOSEUP?'true':'false')}
 function toggleCloseup(){CLOSEUP=!CLOSEUP;store.set('kaidan-closeup',CLOSEUP?1:0);closeupLabel();UI.sub(CLOSEUP?'被抓時會看到怪談的特寫':'被抓時只會閃一下紅光','info')}
-function toTitle(){releaseKeys();newGame(0);G.menuMode=true;G.menuCam={x:41.5*TS,y:21*TS};updCam(true);
+function toTitle(){releaseKeys();newGame(0);setupView();document.body.classList.remove('yelu');if(typeof YL_RUN!=='undefined')YL_RUN.titleFill();G.menuMode=true;G.menuCam={x:41.5*TS,y:21*TS};updCam(true);
   ['#hud','#touch','#pause','#end','#codex','#meet','#death','#settings','#credits','#intro'].forEach(s=>$(s).hidden=true);$('#title').hidden=false;
   const tutDone=store.get('kaidan-tut',0),run=loadRun();['#nightcard','#bless','#runend'].forEach(s=>$(s).hidden=true);
   $('#m-start-sub').textContent=run?run.offer?`天亮了，挑一個祝福再進${NIGHTS[run.night].name}`:`繼續${NIGHTS[run.night].name}・替身剩 ${run.lives} 個`:tutDone?'連續七個晚上，撐到頭七':'第一次玩，建議先走一遍教學';$('#m-new').hidden=!run;
   const plays=store.get('kaidan-plays',[]).length;$('#m-plays').hidden=!plays;$('#m-plays').textContent=`複製試玩紀錄（${plays} 筆）`;
   $('#m-codex-sub').textContent=`已記下 ${[...UI.seenBook].filter(t=>CODEX.includes(t)).length}／${CODEX.length} 種怪談與規矩`;
-  const now=new Date(),am=run?MODS.find(m=>m.id===run.mod):G.mod;$('#almanac').innerHTML=`<div class="h"><span>農民曆・山腳村</span><span>${now.getMonth()+1}月${now.getDate()}日</span></div><b>今夜　${am.name}</b><span class="yi">宜</span><span>${am.yi}</span><span class="ji">忌</span><span>${am.ji}</span><span style="grid-column:1/-1;font-size:13px;color:#5b4a32;margin-top:4px">${am.desc}</span>`;
+  const now=new Date(),am=run?MODS.find(m=>m.id===run.mod):G.mod;$('#almanac').innerHTML=`<div class="h"><span>農民曆・山腳村</span><span>${now.getMonth()+1}月${now.getDate()}日</span></div><b>今夜　${am.name}</b><span class="yi">宜</span><span>${am.yi}</span><span class="ji">忌</span><span>${am.ji}</span><span style="grid-column:1/-1;font-size:13px;color:var(--ink-2);margin-top:4px">${am.desc}</span>`;
   const br=store.get('kaidan-bestrun',null),best=+store.get('kaidan-best',0)||bestScore;$('#best').textContent=br?(br.won?`最好的一次：走完七夜，救出 ${br.saved} 人`:`最好的一次：撐過 ${br.nights} 夜，救出 ${br.saved} 人`):best?`單夜最高分 ${best}`:''}
-function startGame(seed,scene,opts){SND.init();releaseKeys();newGame(seed,scene,opts);G.menuMode=false;updCam(true);UI.cache='';UI.subs=[];$('#sub').innerHTML='';
+function startGame(seed,scene,opts){SND.init();releaseKeys();newGame(seed,scene,opts);setupView();G.menuMode=false;updCam(true);UI.cache='';UI.subs=[];$('#sub').innerHTML='';
   ['#title','#pause','#end','#codex','#meet','#death','#nightcard','#bless','#runend','#settings','#credits','#intro','#boot'].forEach(s=>$(s).hidden=true);$('#hud').hidden=false;UI.unlocked=undefined;$('#touch').hidden=!IS_TOUCH;$('#tut').hidden=!G.tut;$('#goal').hidden=G.tut;
+  if(G.yelu){SND.drone(.4);YL_RUN.onStart();cv.focus&&cv.focus({preventScroll:true});return}
   if(G.tut)TUT.start();else UI.sub('天亮前，把村裡的人帶回村口的貨車。','omen');UI.itemTip(true);SND.drone(.4);cv.focus&&cv.focus({preventScroll:true})}
 
 /* ---------------- shell: start screen, opening, settings ---------------- */
 // the start screen asks for one key or tap: the browser only lets sound play after that, and it sets the mood (headphones, lights off)
-function closeBoot(){if($('#boot').hidden)return;SND.init();$('#boot').hidden=true;setTimeout(()=>$('#m-start').focus({preventScroll:true}),30)}
+function closeBoot(){if($('#boot').hidden)return;SND.init();$('#boot').hidden=true;setTimeout(()=>{if(!IS_TOUCH)$('#m-start').focus({preventScroll:true})},30)}
 if(navigator.webdriver)$('#boot').hidden=true; // automated tests start at the title
 if(IS_TOUCH){$('#bootgo').textContent='點一下開始';$('#introhint').textContent='點一下繼續'}
 const INTRO={lines:[],i:0,done:null,
   play(lines,done){this.lines=lines;this.i=-1;this.done=done;releaseKeys();$('#intro').hidden=false;this.next()},
   next(){this.i++;if(this.i>=this.lines.length)return this.end();const el=$('#introline');el.classList.remove('show');void el.offsetWidth;el.textContent=this.lines[this.i];el.classList.add('show');SND.paper()},
   end(){if($('#intro').hidden)return;$('#intro').hidden=true;const d=this.done;this.done=null;d&&d()}};
-function openSettings(){for(const k of['master','music','sfx']){$('#v-'+k).value=SND.vol[k];$('#o-'+k).textContent=SND.vol[k]}closeupLabel();$('#mute').textContent=(SND.on?'聲音：開':'聲音：關')+(IS_TOUCH?'':'（M）');
-  $('#settings').hidden=false;setTimeout(()=>$('#v-master').focus({preventScroll:true}),30)}
+function openSettings(){{const fs=$('#fullscreen'),row=fs&&fs.closest('.setrow');if(row)row.hidden=!document.fullscreenEnabled}   // iPhone Safari has no page fullscreen: do not offer a button that does nothing
+for(const k of['master','music','sfx']){$('#v-'+k).value=SND.vol[k];$('#o-'+k).textContent=SND.vol[k]}closeupLabel();$('#mute').textContent=(SND.on?'聲音：開':'聲音：關')+(IS_TOUCH?'':'（M）');
+  $('#settings').hidden=false;setTimeout(()=>{if(!IS_TOUCH)$('#v-master').focus({preventScroll:true})},30)}
 function closeCredits(){$('#credits').hidden=true;$('#m-credits').focus({preventScroll:true})}
 // WebKit only lets sound start on a real activation (pointerup / touchend / click / key), not on pointerdown: try again on each
 for(const ev of['pointerup','touchend','click','keydown'])addEventListener(ev,()=>{if(SND.ac&&SND.ac.state==='suspended')SND.ac.resume()},{passive:true});
@@ -158,7 +164,7 @@ const TUT={i:0,fail:null,t:0,m:null,done:false,
     {h:'屏住呼吸',p:()=>`殭屍看不見，只聽呼吸。走到路中間的記號，等牠跳近時，${IS_TOUCH?'按住「屏息」':'按住 <kbd>Space</kbd>'}憋氣，讓牠跳過去。`,
       at:()=>({x:tc(18),y:tc(12)+12}),reset:[18.5,13],done:()=>Math.hypot(G.player.x-tc(18),G.player.y-tc(12)-12)<22},
     {h:'',enter(){TUT.spawn('jiang',[2,12],[[33,12.5]])},p:()=>{const m=TUT.m,P=G.player;if(!m)return'';const d=dist(m,P)/TS;
-        return P.holding?`撐住……（剩 ${P.breath.toFixed(1)} 秒的氣）`:d<5&&m.x<P.x?`<b style="color:var(--cinnabar)">就是現在——${IS_TOUCH?'按住「屏息」':'按住 Space'}！</b>`:'牠一跳一跳地過來了。站著別動，等牠靠近再憋氣；氣只有五秒。'},
+        return P.holding?`撐住……（剩 ${P.breath.toFixed(1)} 秒的氣）`:d<5&&m.x<P.x?`<b style="color:var(--red)">就是現在——${IS_TOUCH?'按住「屏息」':'按住 Space'}！</b>`:'牠一跳一跳地過來了。站著別動，等牠靠近再憋氣；氣只有五秒。'},
       title:'讓殭屍跳過去',reset:[18.5,13],back:4,done:()=>TUT.m&&TUT.m.done},
     {h:'用鞭炮嚇跑魔神仔',enter(){if(!G.inv.firecracker)G.inv.firecracker=1;G.sel=0;const P=G.player;TUT.spawn('mosin',[10,16],[[P.x/TS,P.y/TS]])},
       p:()=>`草叢裡有東西在笑。魔神仔怕鞭炮：${IS_TOUCH?'按「道具」往面對的方向丟':'把滑鼠指向牠，按左鍵或 <kbd>F</kbd> 丟出去'}。被牠牽走的人，常常再也找不回來。`,
@@ -336,6 +342,7 @@ addEventListener('keydown',e=>{
   if(!$('#credits').hidden){if(e.code==='Escape'||e.code==='Enter'){e.preventDefault();closeCredits()}return}
   if(!$('#meet').hidden){if(e.code==='Enter'||e.code==='Escape'||e.code==='Space'){e.preventDefault();UI.closeMeet()}return}
   if(!$('#codex').hidden){if(e.code==='Escape'){$('#codex').hidden=true;$('#m-codex').focus({preventScroll:true})}return}
+  if(typeof YL_RUN!=='undefined'&&YL_RUN.overlayKey(e))return;   /* 夜路's own cards take their keys first */
   if(!$('#title').hidden){if(e.code==='Enter'&&e.target.tagName!=='BUTTON'){startRun()}return}
   if(!$('#nightcard').hidden){if(e.code==='Enter'&&e.target.tagName!=='BUTTON'){startRunNight()}else if(e.code==='Escape')toTitle();return}
   if(!$('#bless').hidden){if(/^Digit[1-3]$/.test(e.code)&&RUN&&RUN.offer)pickBless(RUN.offer[+e.code[5]-1]);return}
@@ -345,6 +352,7 @@ addEventListener('keydown',e=>{
   if(e.code==='KeyM'){SND.toggle();return}
   if((e.code==='Escape'||e.code==='KeyP')&&!G.over){setPause(!G.paused);return}
   if(G.paused||G.over)return;
+  if(G.yelu){keys[e.code]=true;if(first&&!e.repeat)YL.key(e.code,e);return}   /* a key held through a card's closing must not chant or act as it repeats */
   if(e.code==='KeyR'&&!G.tut&&!inRun()){startGame(0);return}
   keys[e.code]=true;if(!first)return;const P=G.player;
   if(P.lured||P.drown){P.mash=(P.mash||0)+1;return} // while you struggle every key press counts, and does nothing else
@@ -360,8 +368,8 @@ addEventListener('blur',()=>{if(playing())setPause(true);releaseKeys()});
 document.addEventListener('visibilitychange',()=>{if(document.hidden&&playing())setPause(true)});
 function aimAt(e){const r=cv.getBoundingClientRect();mouse.fx=(e.clientX-r.left)/r.width;mouse.fy=(e.clientY-r.top)/r.height;mouse.active=true}
 cv.addEventListener('mousemove',e=>{if(!IS_TOUCH||e.pointerType!=='touch')aimAt(e)});
-cv.addEventListener('mousedown',e=>{SND.init();if(e.button===0&&playing()&&!IS_TOUCH){aimAt(e);if(G){mouse.x=CAM.x+mouse.fx*SW/CAM.z;mouse.y=CAM.y+mouse.fy*SH/CAM.z}useSel()}});
-cv.addEventListener('wheel',e=>{if(playing()){cycle(e.deltaY>0?1:-1);e.preventDefault()}},{passive:false});
+cv.addEventListener('mousedown',e=>{SND.init();if(e.button===0&&playing()&&!IS_TOUCH&&!(G&&G.yelu)){aimAt(e);if(G){mouse.x=CAM.x+mouse.fx*SW/CAM.z;mouse.y=CAM.y+mouse.fy*SH/CAM.z}useSel()}});
+cv.addEventListener('wheel',e=>{if(playing()&&!G.yelu){cycle(e.deltaY>0?1:-1);e.preventDefault()}},{passive:false});
 cv.addEventListener('contextmenu',e=>e.preventDefault());
 $('#tray').addEventListener('click',e=>{const s=e.target.closest('.slot');if(s&&G){G.sel=+s.dataset.i;UI.itemTip(true);UI.cache=''}});
 // touch: a floating stick on the left half, buttons on the right
@@ -376,10 +384,10 @@ if(IS_TOUCH){let tid=null;
   tap('#t-act',interact);tap('#t-item',useSel);tap('#t-crouch',crouch);tap('#t-follow',toggleFollow);hold('#t-run','touchRun');hold('#t-breath','touchBreath');
   document.body.classList.add('touch');document.querySelectorAll('.btn').forEach(b=>b.textContent=b.textContent.replace(/（[^）]*）$/,''))}
 // buttons
-$('#m-start').onclick=startRun;$('#m-quick').onclick=()=>startGame(0);$('#m-new').onclick=()=>{store.set('kaidan-run',null);newRun()};
+$('#m-start').onclick=startRun;$('#m-quick').onclick=()=>startGame(0);$('#m-yelu').onclick=()=>YL_RUN.start();$('#m-new').onclick=()=>{store.set('kaidan-run',null);newRun()};
 $('#m-plays').onclick=()=>copyText(playsText(),$('#best'),'試玩紀錄已複製。');$('#ncgo').onclick=startRunNight;$('#nctitle').onclick=toTitle;$('#reagain').onclick=newRun;$('#retitle').onclick=toTitle;$('#m-tut').onclick=()=>startGame(0,'tutorial');$('#m-codex').onclick=openCodex;
 $('#codexclose').onclick=()=>{$('#codex').hidden=true;$('#m-codex').focus({preventScroll:true})};$('#meetok').onclick=()=>UI.closeMeet();
-$('#m-settings').onclick=openSettings;$('#psettings').onclick=openSettings;$('#setclose').onclick=closeSettings;$('#m-credits').onclick=()=>{$('#credits').hidden=false;setTimeout(()=>$('#credclose').focus({preventScroll:true}),30)};$('#credclose').onclick=closeCredits;
+$('#m-settings').onclick=openSettings;$('#psettings').onclick=openSettings;$('#setclose').onclick=closeSettings;$('#m-credits').onclick=()=>{$('#credits').hidden=false;setTimeout(()=>{if(!IS_TOUCH)$('#credclose').focus({preventScroll:true})},30)};$('#credclose').onclick=closeCredits;
 $('#bootgo').onclick=closeBoot;$('#boot').addEventListener('pointerdown',closeBoot);$('#intro').addEventListener('pointerdown',e=>{if(e.target.id!=='introskip')INTRO.next()});$('#introskip').onclick=()=>INTRO.end();
 $('#fullscreen').onclick=()=>{const d=document;if(d.fullscreenElement)d.exitFullscreen&&d.exitFullscreen();else{const el=d.documentElement;(el.requestFullscreen||el.webkitRequestFullscreen||(()=>{})).call(el)}};
 for(const k of['master','music','sfx']){const el=$('#v-'+k),o=$('#o-'+k);el.addEventListener('input',()=>{SND.vol[k]=+el.value;o.textContent=el.value;SND.applyVol();store.set('kaidan-vol',SND.vol)})}
@@ -412,5 +420,5 @@ toTitle();if(+qs.get('seed'))startGame(+qs.get('seed'));
 if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>{if(G&&G.chunks)G.chunks.clear()});
 requestAnimationFrame(frame);
 Object.defineProperty(KT,'G',{get(){return G}});Object.defineProperty(KT,'RUN',{get(){return RUN}});
-Object.assign(KT,{freezeLunge:t=>{LUNGE_FREEZE=t==null?null:t},closeSprite,lungeOrigin,toggleCloseup,startApparition,answerKuchi,setDoor,landProjectile,fireItem,updNight,falseScare,modPool,update:dt=>update(dt),draw,useItem,useSel,interactTarget,interact,callSurv,spawnMonster,setState,bang,keys,mouse,startGame,toTitle,toggleFollow,hideIn,exitSpot,canSee,catchHuman,setPause,TUT,UI,MONSTERS,ITEMS,endGame,startRun,newRun,startRunNight,pickBless,runNext,showRunEnd,playsText,NIGHTS,BLESSINGS,
+Object.assign(KT,{freezeLunge:t=>{LUNGE_FREEZE=t==null?null:t},closeSprite,lungeOrigin,toggleCloseup,startApparition,apPos,answerKuchi,setDoor,landProjectile,fireItem,updNight,falseScare,modPool,update:dt=>update(dt),draw,useItem,useSel,interactTarget,interact,callSurv,spawnMonster,setState,bang,keys,mouse,startGame,toTitle,toggleFollow,hideIn,exitSpot,canSee,catchHuman,setPause,TUT,UI,MONSTERS,ITEMS,endGame,startRun,newRun,startRunNight,pickBless,runNext,showRunEnd,playsText,NIGHTS,BLESSINGS,
   step(n,dt){dt=dt||1/60;for(let i=0;i<n&&!G.over;i++)update(dt)}});

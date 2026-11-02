@@ -1,3 +1,5 @@
+<!doctype html>
+<html lang="zh-Hant-TW">
 <meta charset="utf-8">
 <title>怪談救援</title>
 <meta name="description" content="停電的山腳村，七個晚上。開著送月曆的貨車進村，在雞啼前把困住的人帶出來。台灣民俗怪談像素恐怖遊戲。">
@@ -50,6 +52,7 @@ kbd{font:500 11px/1 var(--f-ui);display:inline-grid;place-items:center;min-width
 /* ---------- HUD: dimmer than the flashlight pool ---------- */
 #hud{position:absolute;inset:0;pointer-events:none}
 #hud>*{pointer-events:auto}
+#hud::before{content:"";position:absolute;inset:0 0 auto 0;height:118px;background:linear-gradient(rgba(5,5,7,.62),rgba(5,5,7,0));pointer-events:none}   /* a dark band under the clock and name cards, so lit rooftops never cut through them */
 #clock{position:absolute;top:14px;left:16px;display:flex;gap:10px;align-items:flex-start;pointer-events:none}
 .incense{position:relative;width:10px;height:92px}
 .incense .stick{position:absolute;left:4px;bottom:0;width:2.5px;background:linear-gradient(#7a2a16,#5a1d0f);border-radius:1px;height:80px}
@@ -61,15 +64,15 @@ kbd{font:500 11px/1 var(--f-ui);display:inline-grid;place-items:center;min-width
 .shichen span{font:500 12px/1.3 var(--f-ui);color:var(--fluo-2);letter-spacing:.04em;font-variant-numeric:tabular-nums;white-space:nowrap;text-shadow:0 1px 3px #000,0 0 6px #000}
 /* the villagers as a row of 光明燈: lit while alive, brighter with you, out once lost */
 #tags{position:absolute;top:12px;right:72px;display:flex;gap:5px;pointer-events:none}
-.tag{position:relative;width:26px;height:70px;display:grid;justify-items:center;align-content:start;padding-top:7px;box-sizing:border-box;border-radius:3px 3px 2px 2px;
+.tag{position:relative;width:26px;height:76px;display:grid;justify-items:start;justify-content:start;align-content:center;padding-top:7px;box-sizing:border-box;border-radius:3px 3px 2px 2px;
   font:700 13px/1 var(--f-ui);writing-mode:vertical-rl;letter-spacing:.14em;background:linear-gradient(#2a1d14,#1a120d);color:#c9a985;box-shadow:inset 0 0 0 1px #4a3626;transition:background .5s,color .5s,box-shadow .5s}
 .tag::before{content:"";position:absolute;left:50%;top:-5px;width:8px;height:5px;transform:translateX(-50%);background:#3a3733;border-radius:2px 2px 0 0}
-.tag.unk{background:var(--glass);color:#c3d2ce;box-shadow:inset 0 0 0 1px #3a4246}
+.tag.unk{background:linear-gradient(#1c2124,#121618);color:#9fb0ac;box-shadow:inset 0 0 0 1px #3a4246}   /* solid: the village must not show through a name card */
 .tag.paper{background:linear-gradient(#ffcf7a,#e9892f);color:#3a1d06;box-shadow:inset 0 0 0 1px #ffd99a,0 2px 14px #ff9a3a44}
 .tag.follow{background:linear-gradient(#fff1c8,#ffc46a);box-shadow:inset 0 0 0 1px #fff4d8,0 2px 18px #ffc46a77}
 .tag.saved{background:linear-gradient(#e8f4ef,#bcd9cf);color:#18352c;box-shadow:inset 0 0 0 1px #f4fffb}
 .tag.dead,.tag.gone{background:#0c0d0e;color:#6f6c66;box-shadow:inset 0 0 0 1px #2a2c2e}
-.tag i{position:absolute;left:50%;bottom:5px;transform:translateX(-50%);writing-mode:horizontal-tb;font-style:normal;font:700 10px/1 var(--f-ui);letter-spacing:0;color:inherit;opacity:.85}
+.tag i{position:absolute;left:50%;bottom:4px;transform:translateX(-50%);writing-mode:horizontal-tb;font-style:normal;font:700 10px/16px var(--f-ui);width:16px;height:16px;text-align:center;letter-spacing:0;color:inherit;border-top:1px solid currentColor;opacity:.8}   /* the status sits in its own slot under a rule, clear of the name */
 #pausebtn{position:absolute;top:10px;right:12px;width:44px;height:44px;display:flex;align-items:center;justify-content:center;gap:5px;border-radius:4px;background:#11151799;box-shadow:inset 0 0 0 1px #3a4246}
 #pausebtn i{display:block;width:4px;height:16px;background:var(--fluo);border-radius:1px}
 #tray{position:absolute;left:50%;bottom:14px;transform:translateX(-50%);display:flex;gap:8px;align-items:flex-end}
@@ -276,7 +279,7 @@ kbd{font:500 11px/1 var(--f-ui);display:inline-grid;place-items:center;min-width
   #sub{left:16px;transform:none;width:calc(100% - 160px);bottom:118px;align-items:flex-start}#sub div{text-align:left;font-size:15px}
   #itemtip{left:16px;transform:none;text-align:left;width:calc(100% - 160px);bottom:72px}#itemtip p{display:none}#itemtip b{font-size:15px}
   #goal{top:112px;left:16px;transform:none;font-size:14px;white-space:normal;max-width:52%}
-  #tags{right:60px;gap:3px}.tag{width:21px;height:60px;font-size:11px;padding-top:6px}
+  #tags{right:60px;gap:3px}.tag{width:21px;height:66px;font-size:11px;padding-top:6px}.tag i{width:13px;font-size:9px}
   .slot{width:46px;height:46px}.slot img{width:36px;height:36px}
   .article{column-count:1}.factbox{grid-template-columns:repeat(3,minmax(0,1fr))}
   .newsbody{grid-template-columns:minmax(0,1fr)}.headline{writing-mode:horizontal-tb;max-height:none;border-left:0;padding-left:0}
@@ -290,6 +293,55 @@ kbd{font:500 11px/1 var(--f-ui);display:inline-grid;place-items:center;min-width
   #tut h3{font-size:17px}#tut p{font-size:13px}
 }
 @media (prefers-reduced-motion:reduce){.overlay .book,.overlay .news,.overlay .dcard,.vtitle,#sub div{animation:none!important}.incense .ember{animation:none}}
+
+/* ---------- polish pass (2026-11-02 UI audit) ---------- */
+.shichen{align-items:flex-start}                                   /* 子時 and the countdown share one left edge */
+#title .left{justify-content:safe flex-end}                        /* overflow stays reachable instead of going off the top */
+@media (max-height:700px) and (min-width:721px){#title .left{gap:14px}.menu>button{min-height:44px;padding:4px 0}}
+/* the paper's buttons stay at the bottom of the sheet, so 繼續 / 闔上 / 再入一夜 are always on screen */
+#pause .book>.row,#codex .book>.row,#settings .book>.row,#credits .book>.row{position:sticky;bottom:calc(-1*clamp(20px,3vw,34px));margin-bottom:calc(-1*clamp(20px,3vw,34px));padding-block:12px clamp(20px,3vw,34px);background:inherit;box-shadow:0 -1px 0 #11111122;z-index:1}
+#end .news>.row{position:sticky;bottom:calc(-1*clamp(18px,3vw,30px));margin-bottom:calc(-1*clamp(18px,3vw,30px));padding-block:12px clamp(18px,3vw,30px);background:inherit;box-shadow:0 -1px 0 #11111122;z-index:1}
+/* Chinese line breaks: no single character left alone on the last line */
+p,li,dd,#deathwho,#deathtip,.blurb,#sub div,#goal,#resub,.article,.bcard span{text-wrap:pretty}
+/* focus on paper: ink, not the fluorescent white that vanishes on it */
+.book :focus-visible,.news :focus-visible,.dcard :focus-visible,.ncard :focus-visible{outline-color:var(--ink)}
+.setrow input[type=range]:focus-visible{outline:2px solid var(--ink);outline-offset:3px}
+/* tap targets: 44 px */
+.btn{min-height:44px}
+#intro .link,#title .link2,.menu .link{min-height:44px;padding:12px 6px;margin-inline:-6px}
+.setrow input[type=range]{height:44px;width:100%;margin:0;box-sizing:border-box;min-width:0}
+/* blessings: the three slips line up */
+.bcard{grid-template-rows:auto 1fr auto auto}.bcard span{min-height:3.2em;text-wrap:balance}
+/* 七夜錄 */
+#relost{margin:0}#relost:empty{display:none}
+#ncbody .fresh{line-height:1.75}#ncbody .fresh b{display:block;margin-bottom:2px}#ncbody .fresh .nb{font-weight:700}
+#tut{display:grid;grid-template-columns:1fr auto;column-gap:12px}#tut .n{grid-column:2;grid-row:1;align-self:center}#tut h3{grid-column:1;grid-row:1}#tut p{grid-column:1/-1}   /* the step count sits beside the heading, not as an eyebrow over it */
+.rerows .fail>*{position:relative;z-index:1}.rerows .fail::after{inset:8px;opacity:.8}
+/* the dead and the missing: still readable */
+.tag.dead i,.tag.gone i{color:#8f8b84;opacity:1}
+/* letter-spacing adds space after the last character too; take it back so centred and right-aligned words sit true */
+#boot b{margin-right:-.2em}.dfoot{margin-right:-.4em}.calfoot{margin-right:-.3em}
+.dcard .row .btn{flex:1 1 auto}
+@media (max-width:720px){
+  #tags{right:64px}.tag{min-height:60px}
+  #title{flex-direction:column;justify-content:flex-start}#title .right{order:-1}#title .left{justify-content:flex-start;flex-shrink:0}
+  #pause .row .btn{flex:1 1 40%}
+  .setrow{grid-template-columns:1fr 3em;row-gap:2px}.setrow input[type=range]{grid-column:1/-1;grid-row:2}
+  .bcard{grid-template-rows:auto auto 1fr;align-content:start;row-gap:6px}.bcard b{grid-row:1/4;align-self:start}.bcard span{min-height:0}
+  .rerows span:last-child{white-space:nowrap;font-size:14px}.rerows div{padding:8px 6px}
+  .dcard canvas{justify-self:center}
+  #tut{left:16px;right:16px;width:auto;margin-left:0;top:118px}
+}
+
+/* ---------- 夜路 mode: hide what the village mode uses; the 回頭 button only on touch ---------- */
+body.yelu #tags,body.yelu #tray,body.yelu #itemtip,body.yelu #goal,body.yelu #clock,body.yelu #t-item,body.yelu #t-run,body.yelu #t-follow{display:none!important}
+#t-look{display:none}body.yelu.touch #t-look{display:block}
+body.yelu #t-breath{font-size:0}body.yelu #t-breath::after{content:'念佛';font-size:15px}
+/* phone subtitles sit under the HUD, full width: off 阿嬤's bubble and away from the thumbs; on its side, clear of the buttons too */
+body.yelu.touch #sub{top:150px;bottom:auto;left:16px;right:16px;width:auto;transform:none;align-items:flex-start}body.yelu.touch #sub div{text-align:left}
+@media (max-height:500px){body.yelu.touch #sub{top:14px;left:190px;right:170px}}   /* on its side: beside the HUD, above the thumbs */
+/* on a phone the 夜路 button comes right after 入夜, so it is on the first screen (iPhone SE 375×667) */
+@media (max-width:720px){#title .menu>*{order:2}#title #m-start{order:0}#title #m-yelu{order:1}}
 </style>
 
 <div id="app">
@@ -309,8 +361,9 @@ kbd{font:500 11px/1 var(--f-ui);display:inline-grid;place-items:center;min-width
     <div id="touch" hidden>
       <button id="t-breath">屏息</button><button id="t-act">互動</button>
       <button id="t-crouch">蹲</button><button id="t-item">道具</button>
-      <button id="t-run">跑</button><button id="t-follow">喊人</button>
+      <button id="t-run">跑</button><button id="t-follow">喊人</button><button id="t-look">回頭</button>
     </div>
+    <div id="ylhud" hidden></div><div id="ylcal" hidden></div><div id="ylslip" hidden></div><div class="overlay dim" id="ylcard" hidden></div>
 
     <div class="overlay" id="title">
       <div class="left">
@@ -319,6 +372,7 @@ kbd{font:500 11px/1 var(--f-ui);display:inline-grid;place-items:center;min-width
         <div class="menu">
           <button id="m-start"><b>入夜</b><small id="m-start-sub">連續七個晚上，撐到頭七</small></button>
           <button id="m-quick" class="ghost"><b>單夜</b><small>只玩一夜，死了馬上重來</small></button>
+          <button id="m-yelu" class="ghost"><b>夜路</b><small id="m-yelu-sub">三個晚上，走同一條路去靈堂</small></button>
           <button id="m-tut" class="ghost"><b>新手教學</b><small>五分鐘學會怎麼活下來</small></button>
           <button id="m-codex" class="ghost"><b>怪談錄</b><small id="m-codex-sub">遇過的怪談與對付方法</small></button>
           <span class="links"><button id="m-settings" class="link2">設定</button><button id="m-credits" class="link2">製作名單</button></span>
@@ -413,7 +467,7 @@ kbd{font:500 11px/1 var(--f-ui);display:inline-grid;place-items:center;min-width
           <dt>設計與程式</dt><dd>Hunter 與 Claude（Anthropic）協作</dd>
           <dt>像素美術</dt><dd>全部以程式繪製</dd>
           <dt>音效</dt><dd>BigSoundBank・Joseph Sardin 錄製<small>CC0 公眾領域授權：狗叫、腳步、心跳、門、鞭炮、廟鐘、蟲鳴、青蛙、風聲等 17 段</small></dd>
-          <dt>字型</dt><dd>思源宋體、思源黑體（Google Noto）、芫荽<small>SIL Open Font License</small></dd>
+          <dt>字型</dt><dd>思源宋體、思源黑體（Google Noto）、<span class="nb">芫荽</span>、<span class="nb">俐方體11號</span>（遊戲畫面裡的字）<small>SIL Open Font License</small></dd>
           <dt>民俗</dt><dd>虎姑婆、魔神仔、紅衣小女孩、頭七等說法依民間流傳整理，細節仍待查證</dd>
         </dl>
         <div class="row"><button class="btn" id="credclose">闔上（Esc）</button></div>

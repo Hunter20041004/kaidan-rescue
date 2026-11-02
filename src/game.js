@@ -15,7 +15,7 @@ const ESCAPE=()=>G.easy?{lure:11,mash:6,drown:5,kick:7}:{lure:8.5,mash:9,drown:3
 function newGame(seed,sceneId,opts){
   sceneId=sceneId||'village';seed=(seed>>>0)||((Math.random()*1e9)>>>0);RNG=mulberry32(seed);
   const sc=SCENES[sceneId];MW=sc.w;MH=sc.h;WW=MW*TS;WH=MH*TS;allocPath();
-  const tut=sceneId==='tutorial';const modsOk=typeof modPool==='function'?modPool():MODS;const run=opts||null,cfg=run&&run.cfg,bless=new Set(run&&run.bless||[]);
+  const tut=sceneId==='tutorial';const modsOk=sc.yelu||(opts&&opts.mod)?MODS:typeof modPool==='function'?modPool():MODS;   /* only roll from the unlocked nights when nobody chose one (夜路 must not touch the 七夜 save) */const run=opts||null,cfg=run&&run.cfg,bless=new Set(run&&run.bless||[]);
   let mod=tut?{id:'tut',name:'教學',yi:'學習',ji:'慌張',light:1.05,speed:1}:run&&run.mod?MODS.find(m=>m.id===run.mod):pick(modsOk);
   if(bless.size){mod={...mod};if(bless.has('eye'))mod.light*=1.3;if(bless.has('soft'))mod.noise=(mod.noise||1)*.6;if(bless.has('incense'))mod.ward=(mod.ward||1)*1.5}
   G={seed,sceneId,sc,tut,mod,t:0,over:null,paused:false,map:[],spots:[],humans:[],monsters:[],items:[],candies:[],noises:[],fx:[],decals:[],bubbles:[],wards:[],proj:[],fuses:[],
@@ -36,8 +36,9 @@ function newGame(seed,sceneId,opts){
   shuffle(sc.trees.slice()).slice(0,tut?1:8).forEach(([x,y])=>addSpot('tree',x,y,-1));
   for(let y=0;y<MH;y++)for(let x=0;x<MW;x++)if(G.map[y][x]==='O')addSpot('well',x,y,-1);
   // player
-  const P={isPlayer:true,name:'你',x:sc.start[0]*TS,y:sc.start[1]*TS,r:7,face:-Math.PI/2,crouch:false,run:false,spot:null,anim:0,shirt:'#33465f',breath:bless.has('lung')?7:5,maxBreath:bless.has('lung')?7:5,holding:false,gasp:0,action:null};
+  const P={isPlayer:true,name:'你',x:sc.start[0]*TS,y:sc.start[1]*TS,r:7,face:-Math.PI/2,crouch:false,run:false,spot:null,anim:0,shirt:'#33465f',breath:bless.has('lung')?7:5,maxBreath:bless.has('lung')?7:5,holding:false,gasp:0,action:null,stam:bless.has('legs')?STAM.legs:STAM.max,maxStam:bless.has('legs')?STAM.legs:STAM.max,tired:0};
   G.player=P;G.humans.push(P);
+  if(sc.yelu){G.yelu=true;for(const k in G.inv)G.inv[k]=0;G.chunks=new Map();sc.setup&&sc.setup(G,opts);return G}   /* 夜路: no villagers, monsters, items or events; the scene sets itself up */
   // survivors
   const nSurv=cfg?cfg.surv:sc.survivorCount;let names=NAMES;
   if(run){names=NAMES.concat(MORE_NAMES).filter(n=>!(run.exclude||[]).includes(n.name));if(names.length<nSurv)names=NAMES.concat(MORE_NAMES)}
@@ -59,10 +60,12 @@ function newGame(seed,sceneId,opts){
   if(sc.itemCount){const bag=shuffle(['firecracker','firecracker','firecracker','candy','candy','candy','oil','oil','incense','incense','incense','talisman','talisman','talisman','firecracker','candy']).slice(0,sc.itemCount);
     shuffle(sc.items.slice()).slice(0,bag.length).forEach(([x,y],i)=>G.items.push({type:bag[i],x:tc(x),y:tc(y),bob:rnd()*6}))}
   // monster schedule
-  if(!tut){const n=cfg?cfg.times.length:mod.count||PACE.times.length;const order=shuffle(MONSTER_ORDER.slice());const times=cfg?cfg.times:mod.times||PACE.times;
+  if(!tut){const n=cfg?cfg.times.length:mod.count||PACE.times.length;const order=shuffle((cfg&&cfg.mons||MONSTER_ORDER).slice());
+    const times=cfg?cfg.times:mod.times||PACE.times;
     // jitter and the swap below use the seed hash, not the game RNG, so the rest of the night's rolls stay unchanged
     if(order[0]==='suigui'){const j=1+Math.floor(hash(seed&65535,3,41)*(order.length-1));[order[0],order[j]]=[order[j],order[0]]} // the first contact has to be able to leave the water
     if(cfg&&cfg.first&&!cfg.first.includes(order[0])){const j=order.findIndex(t=>cfg.first.includes(t));if(j>0)[order[0],order[j]]=[order[j],order[0]]}
+    if(cfg&&cfg.fresh){const fr=order.filter(m=>cfg.fresh.includes(m));for(const m of fr){const i=order.indexOf(m);if(i>=n&&n>1){const j=n-1;[order[i],order[j]]=[order[j],order[i]]}}}   // tonight's new monster is sure to show up
     order.slice(0,n).forEach((type,i)=>{const t=times[i]+(i?0:hash(seed&65535,5,43)*PACE.jitter);G.schedule.push({t,type,omen:Math.max(0,t-(i?8:PACE.omenLead)),first:!i})});G.reserve=order.slice(n);
     G.events.push({t:11,type:'scream'});scheduleApparitions();shuffle(Object.keys(EVENTS)).slice(0,2).forEach((k,i)=>G.events.push({t:(70+i*120+rnd()*80)*G.night/sc.night,type:k}))}
   G.chunks=new Map();
@@ -142,10 +145,12 @@ function onNoise(m,n){
   if(['flee','stun','lead','drag','sealed','sated','eat','ask'].includes(m.state))return;
   if(m.state==='knock'&&m.spot&&m.spot.occ.includes(n.src))return; // a gasp from inside the door she is knocking on: her sniff check handles it (QA r3: it used to restart the knock)
   if(m.tame&&m.script&&m.state!=='chase'&&n.kind!=='bang')return;
+  if(m.state==='siege'&&!['bang','bell','chime','cry'].includes(n.kind))return; // fixed on its prey: only a real commotion draws it off
   const d=Math.hypot(m.x-n.x,m.y-n.y);
   if(m.type==='mosin'){if((n.kind==='bang'||n.kind==='bell')&&d<(n.kind==='bell'?5:7)*TS){flee(m,n.x,n.y,9);bubble(m,'嘻——！','monster',1.5);(n.scared=n.scared||[]).push(m)}return}
   if(m.type==='suigui'){if(n.kind==='splash'&&m.state!=='chase'){setState(m,'investigate',7);m.goal={x:n.x,y:n.y};(n.drawn=n.drawn||[]).push(m)}return}
   if(n.kind==='splash')return;
+  if((m.state==='chase'||m.state==='stalk')&&m.target&&n.src===m.target&&(n.kind==='step'||n.kind==='gasp')){m.lastX=n.x;m.lastY=n.y;m.lost=0;return} // it hears where you are running, and your gasping: break its sight and go quiet, or it keeps coming
   if((m.state==='chase'||m.state==='stalk')&&n.kind!=='bang')return;
   if(m.state==='chase'&&m.target&&dist(m,m.target)<3*TS)return;
   setState(m,'investigate',9);m.goal={x:n.x,y:n.y};m.target=null;if(n.kind==='bang')(n.drawn=n.drawn||[]).push(m);
@@ -282,7 +287,7 @@ function updMonster(m,dt){
     if(!h||!alive(h)||h.lured||h.drown){setState(m,'patrol');m.target=null;break}
     const vis=canSee(m,h)||smell(m)===h;if(vis){m.lastX=h.x;m.lastY=h.y;m.lost=0}else m.lost=(m.lost||0)+dt;
     m.chaseT+=dt;let sp=def.chase;if(m.type==='kuchi'&&m.chaseT>6)sp=125;if(m.tame)sp*=.85;
-    step(vis?h.x:m.lastX,vis?h.y:m.lastY,sp*spd);
+    step(vis?h.x:m.lastX,vis?h.y:m.lastY,Math.max(sp*spd,(G.run&&G.run.cfg&&G.run.cfg.easy?SIEGE.chaseEasy:SIEGE.chaseMin)*G.mod.speed*(m.tame?.85:1)));
     if(!m.reach&&indoor(h)&&m.type!=='jiang'&&m.type!=='suigui'){const mx=Math.floor(m.x/TS),my=Math.floor(m.y/TS);let door=null;for(let dy=-2;dy<=2&&!door;dy++)for(let dx=-2;dx<=2;dx++)if(tileAt(mx+dx,my+dy)==='D'){door=[mx+dx,my+dy];break}
       if(door&&dist(m,h)<9*TS){m.sealT0={tiger:1.6,kuchi:2.6,mosin:3.2}[m.type]||2.5;setState(m,'bash',{tiger:1.6,kuchi:2.6,mosin:3.2}[m.type]||2.5);m.door=door;m.target=h;bubble(m,{tiger:'乖孩子，開門……',kuchi:'……開門。',mosin:'嘻嘻，開門嘛。'}[m.type]||'……','monster',1.6);break}}
     if(!m.reach&&vis){m.blockT+=dt;if(m.blockT>2&&!m.blockLogged&&G.holy.has(Math.floor(h.y/TS)*MW+Math.floor(h.x/TS))){m.blockLogged=true;log(`${def.name}堵在廟門口，盯著裡面。`,'absurd')}
@@ -300,6 +305,11 @@ function updMonster(m,dt){
     break}
   case 'investigate':m.timer-=dt;if(step(m.goal.x,m.goal.y,def.speed*(m.hunt>G.t?1:1.35)*spd)||m.timer<=0||Math.hypot(m.x-m.goal.x,m.y-m.goal.y)<14)setState(m,'search',2);break;
   case 'search':m.timer-=dt;m.face+=dt*2.4;if(m.timer<=0)setState(m,'patrol');break;
+  case 'siege':{const S=m.siege,h=S&&S.h;if(!S||!h||!alive(h)||h.state==='follow'){setState(m,'patrol');break}
+    // it has cornered someone: it prowls around their hiding place, waiting
+    if(dist(m,h)>2.4*TS)navTo(m,h.x,h.y,def.speed*1.5*spd,dt,pass);
+    else{S.arrived=true;m.orb=(m.orb||rnd()*6)+dt*.5;navTo(m,h.x+Math.cos(m.orb)*1.8*TS,h.y+Math.sin(m.orb)*1.8*TS,def.speed*.55*spd,dt,pass);if(!m.moving)m.face=Math.atan2(h.y-m.y,h.x-m.x)}
+    break}
   case 'patrol':
     if(!m.goal){m.goal=patrolGoal(m);m.timer=16}m.timer-=dt;
     if(step(m.goal.x,m.goal.y,def.speed*spd)||m.timer<=0||Math.hypot(m.x-m.goal.x,m.y-m.goal.y)<12){if(m.script&&m.script.pts[m.script.i]===m.goal)m.script.i++;m.goal=null}
@@ -309,6 +319,54 @@ function updMonster(m,dt){
     if(dP<12*TS){if(m.type==='suigui')fx('ripple',m.x,m.y,{life:1.2});else if(m.type!=='mosin')fx('step',m.x,m.y,{life:.9,big:m.type==='tiger'||m.type==='jiang'||m.state==='chase'});
       if(m.type==='jiang')SND.hop(dP);}}}
   m.cueT-=dt;if(m.cueT<=0){m.cueT=m.state==='chase'?.9+rnd()*.5:3.5+rnd()*4;if(dist(m,G.player)<16*TS)SND.cue(m.type,m.x,m.y,m.state==='chase')}
+}
+
+/* ---------------- sieges: a villager is cornered and the clock starts ---------------- */
+// gives every night a reason to move now, and a problem that walking up to them does not solve: lure it away (bell, firecracker, candy) or take it on yourself
+const DIRS=['東','東南','南','西南','西','西北','北','東北'];
+function dirName(from,to){return DIRS[(Math.round(Math.atan2(to.y-from.y,to.x-from.x)/(Math.PI/4))+8)%8]}
+// can this monster lawfully get at them where they are? the folk rules hold even when the clock runs out
+function canTake(m,h){const tx=Math.floor(h.x/TS),ty=Math.floor(h.y/TS);
+  if(h.spot){const t=h.spot.type;if(t==='tree'||t==='well')return false;if(m.type!=='tiger'&&m.type!=='jiang')return false} // only she knocks doors open, only it pulls them open by the breath
+  if(!h.spot&&hiddenFrom(m,h))return false; // crouched in the grass: only Mosinna and the zombie can lay hands on them
+  if(m.type==='jiang'&&indoor(h))return false;
+  if(MONSTERS[m.type].holy&&((G.incense>0&&G.holy.has(ty*MW+tx))||inWard(tx,ty)))return false;
+  return true}
+function endSiege(why){const S=G.siege;if(!S)return;G.siege=null;S.h.besieged=false;const m=S.m;m.siege=null;if(m.state==='siege')setState(m,'patrol');
+  // drawn off or distracted: it was standing right next to them, so it leaves them be for a while (or luring it away would just get them caught)
+  if(why==='timeout'){if(m.ignore&&m.ignore.h===S.h)m.ignore=null}else m.ignore={h:S.h,until:G.t+SIEGE.grace};
+  if(why==='other'&&m.target)UI.sub(`${m.def.name}丟下${S.h.name}，轉頭去追${m.target.name}了！`,'death');
+  if(why==='blocked')log(`${m.def.name}在${S.h.name}躲的地方外面繞了幾圈，進不去，走了。`,'absurd');
+  if(why==='lured'&&alive(S.h)){log(`${m.def.name}被引開了。快去帶${S.h.name}走！`,'clutch');UI.sub(`${m.def.name}被引開了——快去帶${S.h.name}走！`,'save')}
+  else if(why==='seen')UI.sub(`${m.def.name}丟下${S.h.name}，朝你來了！`,'death')}
+function updSiege(dt){
+  const P=G.player;if(G.tut||!alive(P))return;
+  if(G.final){if(G.siege)endSiege();return} // the last minute belongs to everyone calling at once
+  if(G.siegeAt==null)G.siegeAt=SIEGE.first[0]+rnd()*(SIEGE.first[1]-SIEGE.first[0]);
+  const S=G.siege;
+  if(S){const h=S.h,m=S.m;
+    if(!alive(h)||h.saved){endSiege();return}
+    if(h.state==='follow'){endSiege();return}
+    if(m.state!=='siege'){endSiege(m.target===P&&['chase','stalk','ask'].includes(m.state)?'seen':['investigate','flee','eat','stun','sealed','sated'].includes(m.state)?'lured':m.target&&m.target!==h&&['chase','stalk','ask'].includes(m.state)?'other':'');return}
+    if(!canTake(m,h)){endSiege('blocked');return}
+    S.t-=dt;S.cry-=dt;if(S.cry<=0){S.cry=S.t<12?2.2:4.5;bubble(h,S.t<12?pick(['快來啊——！','牠在門口！！','拜託——！']):`${h.name}：救命……牠在外面……`,'scream',2);SND.cue('scream',h.x,h.y)}
+    S.t=Math.max(0,S.t);if(S.t<=0){S.over=(S.over||0)+dt;if(S.over>8){endSiege('blocked');return}} // time is up but it cannot get to the door: it gives up
+    if(S.t<=0&&dist(m,h)<2.6*TS){ // time is up and it is at the door: it takes them its own way, no teleporting
+      endSiege('timeout');G.siegeLost=(G.siegeLost||0)+1;log(`${m.def.name}等不及了。${h.name}沒等到你。`,'regret');
+      if(h.spot){const sp=h.spot;sp.open=1.2;exitSpot(h);h.x=sp.x;h.y=sp.y+4;catchHuman(m,h);if(m.state==='siege')setState(m,'patrol')}
+      else{setState(m,'chase');m.target=h;m.chaseT=0;m.blockT=0;m.lastX=h.x;m.lastY=h.y}}
+    return}
+  if(G.t<G.siegeAt)return;
+  const cands=G.humans.filter(h=>!h.isPlayer&&alive(h)&&!h.saved&&!h.lured&&!h.drown&&h.state!=='follow'&&!h.wasFollower&&dist(h,P)>8*TS);
+  const idle=G.monsters.filter(m=>!m.hidden&&!m.tame&&m.type!=='suigui'&&['patrol','investigate','search'].includes(m.state));
+  if(!cands.length||!idle.length){G.siegeAt=G.t+5;return}
+  const pairs=cands.map(h=>[h,idle.filter(m=>canTake(m,h)).sort((a,b)=>dist(a,h)-dist(b,h))[0]]).filter(p=>p[1]);
+  if(!pairs.length){G.siegeAt=G.t+5;return}
+  const[h,m]=pick(pairs);
+  const T=G.run&&G.run.cfg&&G.run.cfg.easy?SIEGE.timeEasy:SIEGE.time;
+  G.siege={m,h,t:T,max:T,cry:0};m.siege=G.siege;m.ignore={h,until:1e9};setState(m,'siege');h.besieged=true;h.met=true;h.reveal=G.t+T;
+  G.siegeAt=G.t+T+SIEGE.gap[0]+rnd()*(SIEGE.gap[1]-SIEGE.gap[0]);
+  const d=dirName(P,h);SND.sting();log(`「救命啊——！」${h.name}在${d}邊，被${m.def.name}困住了。`,'death');
 }
 
 /* ---------------- survivors ---------------- */
@@ -336,7 +394,7 @@ function updBreath(h,dt){
   else if(!h.holding)h.breath=Math.min(h.maxBreath,h.breath+dt*.9);
 }
 function updSurv(s,dt){
-  if(!alive(s)||s.lured||s.drown)return;s.anim+=dt;s.moving=false;if(s.frozen){updBreath(s,dt);return}s.scream-=dt;const P=G.player;const threat=threatTo(s);
+  if(!alive(s)||s.lured||s.drown)return;s.anim+=dt;s.moving=false;if(s.frozen||(s.besieged&&s.state!=='follow')){updBreath(s,dt);return}s.scream-=dt;const P=G.player;const threat=threatTo(s);
   // copy the player's held breath when close
   const copy=P.holding&&!P.spot&&dist(P,s)<5*TS&&(s.state==='follow'||s.state==='stay'||(s.state==='hide'&&!s.spot));
   if(copy&&!s.holding&&s.gasp<=0&&s.breath>.5)s.holding=true;if(!copy)s.holding=false;
@@ -387,11 +445,15 @@ function callSurv(s){
 /* ---------------- player ---------------- */
 const keys={},mouse={x:0,y:0,active:false};let touchVec=null;
 function P_action(type,a,instant){const P=G.player;P.action={type,t:instant?.2:0,dur:{throw:.34,incense:.62,talisman:.3}[type==='firecracker'||type==='candy'||type==='oil'?'throw':type]||.3,a,item:type,fired:!!instant}}
+// the player also bumps into street furniture (scooters, the kiosk, poles, the 金爐…); villagers and monsters do not, so nobody gets stuck on a chair
+function decorHit(x,y,r){const D=typeof decorPlan==='function'?decorPlan():null;if(!D||!D.solids)return false;for(const s of D.solids)if(x+r>s.x-s.hw&&x-r<s.x+s.hw&&y+3>s.y-s.hd&&y-2<s.y+1)return true;return false}
+function moveByP(a,dx,dy){const inside=decorHit(a.x,a.y,a.r);if(dx&&canStand(a.x+dx,a.y,a.r,humanPass)&&(inside||!decorHit(a.x+dx,a.y,a.r)))a.x+=dx;if(dy&&canStand(a.x,a.y+dy,a.r,humanPass)&&(inside||!decorHit(a.x,a.y+dy,a.r)))a.y+=dy}
 function updPlayer(dt){
   const P=G.player;P.anim+=dt;P.moving=false;if(!alive(P))return;
-  const wantHold=!!(keys.Space||G.touchBreath)&&(!P.spot||P.spot.type==='cabinet'||P.spot.type==='hay')&&!P.lured&&!P.drown; // you can hold your breath inside a cabinet or haystack
+  const wantHold=!G.yelu&&!!(keys.Space||G.touchBreath)&&(!P.spot||P.spot.type==='cabinet'||P.spot.type==='hay')&&!P.lured&&!P.drown; // you can hold your breath inside a cabinet or haystack
   if(wantHold&&!P.holding&&P.gasp<=0&&P.breath>.3)P.holding=true;if(!wantHold)P.holding=false;
   updBreath(P,dt);
+  if(P.spot||P.climb){P.tired=Math.max(0,P.tired-dt);P.rest=(P.rest||0)+dt;if(P.rest>STAM.delay)P.stam=Math.min(P.maxStam,P.stam+dt*STAM.regenStill)} // hiding is how you catch your breath
   if(P.lured){const m=P.lured;navTo(P,m.x-Math.cos(m.face)*14,m.y-Math.sin(m.face)*14,56,dt,humanPass);P.moving=true;
     const caller=G.humans.find(h=>!h.isPlayer&&alive(h)&&!h.lured&&!h.drown&&['follow','stay','hide'].includes(h.state)&&h.wasFollower&&dist(h,P)<6*TS&&los(h.x,h.y,P.x,P.y));
     if(caller&&P.luredT>2){bubble(caller,'喂！醒醒！','scream',1.8);log(`${caller.name}大喊你的名字，你猛然回過神。`,'clutch');setState(m,'stun',2);release(m);return}
@@ -408,16 +470,21 @@ function updPlayer(dt){
     return}
   let dx=(keys.KeyD||keys.ArrowRight?1:0)-(keys.KeyA||keys.ArrowLeft?1:0),dy=(keys.KeyS||keys.ArrowDown?1:0)-(keys.KeyW||keys.ArrowUp?1:0);
   if(touchVec){dx=touchVec.x;dy=touchVec.y}
-  P.run=!!(keys.ShiftLeft||keys.ShiftRight||G.touchRun)&&!P.crouch&&!P.holding;
+  P.tired=Math.max(0,P.tired-dt);
+  P.run=!G.yelu&&!!(keys.ShiftLeft||keys.ShiftRight||G.touchRun)&&!P.crouch&&!P.holding&&P.tired<=0;
   const l=Math.hypot(dx,dy),busy=A&&A.item==='incense';
-  if(l>.1&&!busy){dx/=Math.max(1,l);dy/=Math.max(1,l);let sp=P.crouch?52:P.run?(G.bless&&G.bless.has('legs')?166:152):100;const tt=tAtPx(P.x,P.y);if(tt==='r'||tt==='s'||tt==='x')sp*=1.12;if(onGrass(P))sp*=.86;if(inWater(P))sp*=.58;if(P.holding)sp=Math.min(sp,58);
-    const ox=P.x,oy=P.y;moveBy(P,dx*sp*dt,dy*sp*dt,humanPass);const moved=Math.hypot(P.x-ox,P.y-oy);P.moving=moved>.1;
+  if(l>.1&&!busy){dx/=Math.max(1,l);dy/=Math.max(1,l);let sp=P.crouch?52:P.run?(G.bless&&G.bless.has('legs')?166:152):100;const tt=tAtPx(P.x,P.y);if(tt==='r'||tt==='s'||tt==='x')sp*=1.12;if(onGrass(P))sp*=.86;if(inWater(P))sp*=.58;if(P.holding)sp=Math.min(sp,58);if(G.sc.walkK)sp*=G.sc.walkK;
+    const ox=P.x,oy=P.y;moveByP(P,dx*sp*dt,dy*sp*dt);P.moveFace=Math.atan2(dy,dx);const moved=Math.hypot(P.x-ox,P.y-oy);P.moving=moved>.1;
+    // you cannot outrun them for long: a sprint lasts a few seconds, then you stop to gasp, loudly
+    if(P.run&&P.moving){P.stam-=dt;if(P.stam<=0){P.stam=0;P.run=false;P.tired=STAM.tired;P.gasp=Math.max(P.gasp,1.4);P.holding=false;bubble(P,'呼……呼……','scream',1.4);SND.gasp();noise(P.x,P.y,STAM.gaspR*TS,'gasp',P)}}
     if(!mouse.active||touchVec)P.face=Math.atan2(dy,dx);
     G.stepAcc+=moved;const every=P.run?30:46;
     if(G.stepAcc>every){G.stepAcc=0;
       if(inWater(P)){noise(P.x,P.y,5*TS,'splash',P);fx('ripple',P.x,P.y,{life:1});SND.wade()}
       if(!P.crouch&&!P.holding){const r=(P.run?7:2.6)*TS*(G.mod.noise||1);noise(P.x,P.y,r,'step',P);fx('ring',P.x,P.y,{life:.6,r});SND.step(P.run,onGrass(P))}
       const ptx=Math.floor(P.x/TS),pty=Math.floor(P.y/TS);if(puddleAt(ptx,pty)&&!P.crouch&&G.flags.pud!==ptx+','+pty){G.flags.pud=ptx+','+pty;noise(P.x,P.y,3.5*TS,'splash',P);fx('ripple',P.x,P.y,{life:1});SND.wade()}}}
+  P.lead=lerp(P.lead||0,P.moving?(P.run?20:12):0,.06);
+  if(P.run&&P.moving)P.rest=0;else{P.rest=(P.rest||0)+dt;if(P.rest>STAM.delay)P.stam=Math.min(P.maxStam,P.stam+dt*(P.moving?STAM.regenWalk:STAM.regenStill))} // breath comes back only after you stop running for a moment
   if(mouse.active&&!touchVec)P.face=Math.atan2(mouse.y-P.y,mouse.x-P.x);
   // props that react when you brush past them
   if(P.moving&&!P.crouch)for(const p of G.props){if((p.type==='J'||p.type==='X')&&p.cd<=G.t&&Math.hypot(p.x-P.x,p.y-P.y)<1.25*TS){p.cd=G.t+6;p.ring=G.t;
@@ -434,12 +501,13 @@ function onHidden(spot){
   if(left.length&&!spotFree(spot)&&G.monsters.some(m=>!m.hidden&&dist(m,P)<10*TS))log(`你搶先躲進${HIDES[spot.type].name}，${left.map(h=>h.name).join('、')}被留在外面。`,'regret');
 }
 function interactTarget(){
-  const P=G.player;if(!alive(P)||P.lured||P.climb||P.drown)return null;
+  const P=G.player;if(G.yelu)return YL.interact(P);if(!alive(P)||P.lured||P.climb||P.drown)return null;
   {const k=G.monsters.find(m=>m.type==='kuchi'&&m.state==='ask'&&m.target===P&&dist(m,P)<5*TS);if(k)return{label:'回答「普通」',x:k.x,y:k.y,fn:()=>answerKuchi(k)}}
+  {const A=G.apparition;if(A&&A.type==='hongbao'&&!A.violated&&!A.taken&&dist(A,P)<1.3*TS)return{label:'撿起紅包',x:A.x,y:A.y,fn:()=>{A.taken=true;punish(A,'你撿起了紅包。霧裡傳來嗩吶聲，一頂紅轎子停在你面前。');setTimeout(()=>{if(G.apparition===A)endApparition()},1200)}}}
   if(P.spot)return{label:P.spot.type==='tree'?'爬下樹':P.spot.type==='hay'?'鑽出草垛':'走出衣櫃',x:P.x,y:P.y,fn:()=>exitSpot(P)};
   if(tAtPx(P.x,P.y)==='x'&&!G.tut){
     const left0=G.humans.filter(h=>!h.isPlayer&&alive(h)&&!h.saved&&!(h.state==='follow'&&dist(h,P)<3*TS)).length;const armed=G.leaveArm!=null&&G.t-G.leaveArm<3;
-    if(left0&&!armed)return{label:`上車離開（還有 ${left0} 人沒救）`,x:P.x,y:P.y,fn:()=>{G.leaveArm=G.t;bubble(P,`真的要丟下 ${left0} 個人？再按一次`,'info',3)}};
+    if(left0&&!armed)return{label:`上車離開（還有 ${left0} 人沒救）`,x:P.x,y:P.y,fn:()=>{G.leaveArm=G.t;bubble(P,inRun()&&G.phase<2?`真的要丟下 ${left0} 個人？寅時以前走，這一夜不算數。再按一次`:`真的要丟下 ${left0} 個人？再按一次`,'info',3.4)}};
     return{label:armed?'確定離開':'上車離開，結束這一夜',x:P.x,y:P.y,fn:()=>{
       for(const h of G.humans.filter(h=>!h.isPlayer&&h.state==='follow'&&alive(h)&&dist(h,P)<3*TS))saveSurv(h);
       const stillLeft=G.humans.filter(h=>!h.isPlayer&&alive(h)&&!h.saved);
@@ -535,7 +603,7 @@ function landProjectile(p){
 
 /* ---------------- main update ---------------- */
 function update(dt){
-  if(G.over)return;G.t+=dt;
+  if(G.over)return;G.t+=dt;if(G.yelu)return YL.update(dt);
   for(const s of G.schedule){if(!s.om&&G.t>=s.omen){s.om=true;log(MONSTERS[s.type].omen,'omen');SND.omenCue(s.type)}if(!s.done&&G.t>=s.t){s.done=true;const m=spawnMonster(s.type,s.first?midSpawn(s.type):null);if(s.first&&m.type!=='suigui'){const c=G.flags.cry;if(c&&alive(c))m.ignore={h:c,until:G.t+PACE.spare};const P=G.player,g=G.sign&&G.t-G.sign.t<15?G.sign:{x:P.x+(rnd()-.5)*10*TS,y:P.y+(rnd()-.5)*10*TS,t:G.t};setState(m,'investigate',24);m.goal={x:g.x+(rnd()-.5)*3*TS,y:g.y+(rnd()-.5)*3*TS};m.hunt=G.t+20;m.huntT=g.t;m.cueT=.8}}}
   if(!G.tut)updNight(dt);
   updPlayer(dt);
@@ -562,8 +630,9 @@ function update(dt){
 }
 
 /* ---------------- apparitions: they impose a rule instead of hunting ---------------- */
-function scheduleApparitions(){const cfg=G.run&&G.run.cfg,times=cfg?cfg.apps:PACE.apps;let order=shuffle(APPARITION_ORDER.slice()).slice(0,cfg?times.length:G.mod.id==='gate'?3:2+(rnd()<.4?1:0));
-  if(G.run&&G.run.calls&&G.run.calls.length&&!order.includes('voice'))order[Math.floor(rnd()*order.length)]='voice'; // the ones you lost call your name tonight
+function scheduleApparitions(){const cfg=G.run&&G.run.cfg,times=cfg?cfg.apps:PACE.apps,pool=cfg&&cfg.appPool||APPARITION_ORDER;let order=shuffle(pool.slice()).slice(0,cfg?times.length:G.mod.id==='gate'?3:2+(rnd()<.4?1:0));
+  if(cfg&&cfg.fresh){const fr=cfg.fresh.filter(a=>pool.includes(a)&&!order.includes(a));for(let i=0;i<fr.length&&i<order.length;i++){const k=order.findIndex(a=>!cfg.fresh.includes(a));if(k<0)break;order[k]=fr[i]}}   // tonight's new rule is sure to happen
+  if(G.run&&G.run.calls&&G.run.calls.length&&!order.includes('voice')&&pool.includes('voice')){const k=order.findIndex(a=>!(cfg&&cfg.fresh||[]).includes(a));order[k<0?0:k]='voice'} // the ones you lost call your name tonight
   order.forEach((type,i)=>G.apps.push({t:times[i]+rnd()*PACE.appJitter,type}))}
 function nearestRoad(P){ // pick the straight road the player is closest to, and walk the procession along it
   const opts=[{axis:'x',c:32,a:2,b:81},{axis:'y',c:41.5,a:28,b:57},{axis:'y',c:30,a:8,b:31},{axis:'y',c:53,a:6,b:31}];let best=opts[0],bd=1e9;
@@ -576,10 +645,26 @@ function startApparition(type){
   if(type==='funeral'){const r=nearestRoad(P),dir=rnd()<.5?1:-1;A.road=r;A.dir=dir;A.pos=(dir>0?r.a:r.b)*TS;A.end=(dir>0?r.b:r.a)*TS;A.look=0;A.members=7;A.pseudo={x:0,y:0,face:0,def:{name:'送葬隊伍'},state:'lead',cool:{},led:null};
     const p=apPos(A,0);A.x=p.x;A.y=p.y}
   if(type==='voice'){const a=P.face+Math.PI;if(G.run&&G.run.calls&&G.run.calls.length)A.caller=pick(G.run.calls);Object.assign(A,{x:P.x+Math.cos(a)*2.6*TS,y:P.y+Math.sin(a)*2.6*TS,dur:4.5,grace:.6,callT:0,pseudo:{x:0,y:0,face:0,def:{name:'那個聲音'},state:'lead',cool:{},led:null}})}
-  {const w=piousNear();if(w){A.hinted={start:1};bubble(w,{girl:'別動！一下都別動……',funeral:'蹲下，頭低下去，別看它！',voice:'不管誰叫你，都別回頭。'}[type],'voice',3);if(!G.flags.pious){G.flags.pious=1;log(`${w.name}壓低聲音提醒你守規矩。`,'clutch')}}}
+  const ahead=(d0,d1)=>{for(let i=0;i<40;i++){const a=P.face+(rnd()-.5)*.5,d=(d0+rnd()*(d1-d0))*TS,x=P.x+Math.cos(a)*d,y=P.y+Math.sin(a)*d;if(humanPass(Math.floor(x/TS),Math.floor(y/TS))&&los(P.x,P.y,x,y))return{x:Math.floor(x/TS)*TS+TS/2,y:Math.floor(y/TS)*TS+TS/2}}return{x:P.x+Math.cos(P.face)*2.5*TS,y:P.y+Math.sin(P.face)*2.5*TS}};
+  const pseudo=name=>({x:0,y:0,face:0,def:{name},state:'lead',cool:{},led:null});
+  if(type==='hongbao'){Object.assign(A,ahead(3.5,5),{dur:18,near:99})}
+  if(type==='bamboo'){const c=ahead(2.6,3.4),ux=-Math.sin(P.face),uy=Math.cos(P.face);Object.assign(A,c,{ux,uy,half:2.6*TS,dur:15,sides:new Map(),pseudo:pseudo('竹篙鬼')});A.pseudo.x=c.x;A.pseudo.y=c.y-10}
+  if(type==='lords'){const r=nearestRoad(P),dir=rnd()<.5?1:-1;Object.assign(A,{road:r,dir,pos:(dir>0?r.a:r.b)*TS,end:(dir>0?r.b:r.a)*TS,members:2,pseudo:pseudo('七爺八爺')});const p=apPos(A,0);A.x=p.x;A.y=p.y}
+  if(type==='wall'){Object.assign(A,{x:P.x,y:P.y,ox:P.x,oy:P.y,still:0,loops:0,dur:30,r:4.5*TS})}
+  if(type==='baby'){let spot=null;for(let i=0;i<60&&!spot;i++){const a=rnd()*6.28,d=(6+rnd()*3)*TS,x=P.x+Math.cos(a)*d,y=P.y+Math.sin(a)*d,tx=Math.floor(x/TS),ty=Math.floor(y/TS);if(tileAt(tx,ty)==='g'||(i>40&&humanPass(tx,ty)))spot={x:tc(tx),y:tc(ty)}}
+    Object.assign(A,spot||ahead(6,8),{dur:20,cryT:0})}
+  if(type==='zhizha'){A.dolls=[];for(const off of[Math.PI,Math.PI*.55,-Math.PI*.55]){let d=null;for(let i=0;i<30&&!d;i++){const a=P.face+off+(rnd()-.5)*.5,r=(4.5+rnd()*1.5)*TS,x=P.x+Math.cos(a)*r,y=P.y+Math.sin(a)*r;if(humanPass(Math.floor(x/TS),Math.floor(y/TS)))d={x,y}}
+      if(d)A.dolls.push({x:d.x,y:d.y,face:0,burn:0,moving:false,boy:A.dolls.length%2===0})}A.dur=16;A.x=P.x;A.y=P.y}
+  {const w=piousNear();if(w){A.hinted={start:1};bubble(w,{girl:'別動！一下都別動……',funeral:'蹲下，頭低下去，別看它！',voice:'不管誰叫你，都別回頭。',hongbao:'地上那個紅包，千萬別撿！',bamboo:'別從竹子底下過，繞過去！',lords:'七爺八爺來了，快讓到路邊蹲下！',wall:'別再走了，站著別動……',baby:'那不是嬰兒，別過去。',zhizha:'燈照著它們！別讓它們出光！'}[type],'voice',3);if(!G.flags.pious){G.flags.pious=1;log(`${w.name}壓低聲音提醒你守規矩。`,'clutch')}}}
   G.apparition=A;G.seen[type]=true;UI.rule(type);if(APPARITIONS[type].omen!=='……')log(APPARITIONS[type].omen,'omen');
-  SND.cue(type==='girl'?'girl':type==='funeral'?'suona':'voice',A.x,A.y);
+  SND.cue(APPARITION_CUE[type]||'voice',A.x,A.y);
 }
+// someone caught by a rule (the bamboo, the chains): mash to break free; the villagers are dragged off after a while
+function apLured(A,dt,goneLine,npcLine){for(const h of G.humans){if(h.lured!==A.pseudo||!alive(h))continue;h.luredT+=dt;
+  if(!h.isPlayer){h.moving=true;navTo(h,A.pseudo.x,A.pseudo.y,40,dt,humanPass);if(h.luredT>8){h.lured=null;takeAway(h,A,npcLine(h))}}
+  else if(h.luredT>ESCAPE().lure){h.gone=true;h.lured=null;G.scare={type:A.type,t:0};log(goneLine,'death')}}}
+function apRelease(A){for(const h of G.humans)if(h.lured===A.pseudo){h.lured=null;if(!h.isPlayer)h.state='stay'}}
+function lit(e){const P=G.player;return alive(P)&&!P.spot&&G.t>=G.darkUntil&&dist(e,P)<7*TS&&Math.abs(angDiff(Math.atan2(e.y-P.y,e.x-P.x),P.face))<.5&&los(P.x,P.y,e.x,e.y)}
 function piousNear(){const P=G.player;return G.humans.find(h=>!h.isPlayer&&alive(h)&&h.quirk==='pious'&&!h.lured&&!h.gone&&dist(h,P)<9*TS)}
 function piousHint(A,key,text){if(A.violated||(A.hinted&&A.hinted[key]))return;const w=piousNear();if(!w)return;(A.hinted=A.hinted||{})[key]=1;bubble(w,text,'voice',2)} // a short reminder, once per cue
 function apPos(A,i){const k=A.pos-A.dir*i*20;return A.road.axis==='x'?{x:k,y:A.road.c*TS}:{x:A.road.c*TS,y:k}}
@@ -587,7 +672,7 @@ function punish(A,msg){A.violated=true;const P=G.player;G.flash={type:A.type,at:
   log(msg,'death');for(const m of G.monsters)if(!m.hidden&&!['sealed','sated','drag','lead'].includes(m.state)&&dist(m,P)<22*TS){setState(m,'investigate',12);m.goal={x:P.x,y:P.y}}}
 function takeAway(h,A,how){h.gone=true;h.frozen=false;h.state='gone';if(h.spot)exitSpot(h);decal('shoes',h.x,h.y);log(how,'death')}
 function updApparition(dt){
-  const A=G.apparition,P=G.player;if(!A)return;A.t+=dt;
+  const A=G.apparition,P=G.player;if(!A)return;A.t+=dt;if(!['girl','funeral','voice'].includes(A.type))return updApparition2(A,dt);
   if(A.type==='girl'){
     if(A.t>A.grace&&A.px===undefined){A.px=P.x;A.py=P.y}
     if(A.px!==undefined&&!A.violated&&alive(P)&&(Math.hypot(P.x-A.px,P.y-A.py)>2.5||(P.action&&!P.action.fired))){
@@ -614,6 +699,53 @@ function updApparition(dt){
     for(const h of G.humans){if(h.lured!==A.pseudo||h.isPlayer||!alive(h))continue;h.luredT+=dt;navTo(h,A.x,A.y,46,dt,humanPass);h.moving=true;if(h.luredT>8){h.lured=null;takeAway(h,A,`${h.name}朝著聲音走進黑暗裡，不見了。`)}}
     if(A.t>A.dur){if(!A.violated)log('你沒有回頭。叫你名字的聲音，慢慢遠了。','clutch');for(const h of G.humans)if(h.lured===A.pseudo){h.lured=null;if(!h.isPlayer)h.state='stay'}endApparition()}}
 }
+function updApparition2(A,dt){const P=G.player;
+  if(A.type==='hongbao'){const d=dist(A,P);A.near=Math.min(A.near,d);if(A.taken)return;
+    for(const h of G.humans)if(!h.isPlayer&&alive(h)&&!h.spot&&!h.lured&&(h.child||h.quirk==='wander')&&dist(h,A)<1.1*TS&&!h.hbChecked){h.hbChecked=true;if(rnd()<.6){A.taken=true;bubble(h,'有紅包耶！','voice',1.6);G.flash={type:'hongbao',at:0};SND.scare('hongbao');takeAway(h,A,`${h.name}撿起了路上的紅包。一頂紅轎子從霧裡出來，把他接走了。`);setTimeout(()=>{if(G.apparition===A)endApparition()},1500);return}}
+    if(A.t>4&&dist(A,P)<3*TS)piousHint(A,'near','別撿！繞過去！');
+    if((A.near<2.6*TS&&d>5*TS)||A.t>A.dur){if(!A.violated)log('你繞過那個紅包。再回頭時，路上什麼也沒有。','clutch');endApparition()}return}
+  if(A.type==='bamboo'){const nx=A.uy,ny=-A.ux;
+    for(const h of G.humans){if(!alive(h)||h.lured||h.spot)continue;const rx=h.x-A.x,ry=h.y-A.y,along=rx*A.ux+ry*A.uy,side=Math.sign(rx*nx+ry*ny)||1,was=A.sides.get(h);A.sides.set(h,side);
+      if(was&&was!==side&&Math.abs(along)<A.half&&A.t>.3){
+        if(h.isPlayer){if(!A.violated){A.violated=true;G.flash={type:'bamboo',at:0};SND.scare('bamboo');G.shake=.4;h.lured=A.pseudo;h.luredT=0;h.mash=0;A.pseudo.led=h;log('你從竹子底下鑽過去。竹子猛地彈起，把你吊上了半空！','death')}}
+        else{h.lured=A.pseudo;h.luredT=0;h.state='lured';bubble(h,'哇啊——！','scream',1.6);log(`${h.name}跟著你從竹子底下穿過去，被彈起的竹子吊了上去。`,'regret')}}}
+    if(A.t>1.5&&dist(A,P)<2.2*TS&&!A.violated)piousHint(A,'near','繞過去！別從底下過！');
+    apLured(A,dt,'竹篙鬼把你吊在竹梢上，再也沒放下來。',h=>`${h.name}被吊在竹梢上，等你回頭，竹子上已經沒有人了。`);
+    if(A.t>A.dur&&!G.humans.some(h=>h.lured===A.pseudo)){if(!A.violated)log('竹子吱嘎一聲彈了回去。你沒有從底下過。','clutch');endApparition()}return}
+  if(A.type==='lords'){A.pos+=A.dir*26*dt;const head=apPos(A,0),tail=apPos(A,1);A.x=(head.x+tail.x)/2;A.y=(head.y+tail.y)/2;const fa=A.road.axis==='x'?(A.dir>0?0:Math.PI):(A.dir>0?Math.PI/2:-Math.PI/2);A.face=fa;A.pseudo.x=head.x;A.pseudo.y=head.y;A.pseudo.face=fa;
+    if(A.t%2.2<dt)SND.cue('bigbell',head.x,head.y);
+    // the gods drive off anything unclean that comes near, so walking behind them is the safest place in the village
+    for(const m of G.monsters){if(m.hidden||m.type==='suigui'||['flee','drag','lead','sealed','sated'].includes(m.state))continue;if(Math.hypot(m.x-A.x,m.y-A.y)<4.5*TS){flee(m,A.x,A.y,6);if(!A.parted){A.parted=true;log(`${m.def.name}一看見七爺八爺，掉頭就跑。`,'absurd')}}}
+    if(alive(P)&&!P.lured&&!P.spot&&!A.violated){const rx=P.x-head.x,ry=P.y-head.y,fwd=rx*Math.cos(fa)+ry*Math.sin(fa),side=Math.abs(-rx*Math.sin(fa)+ry*Math.cos(fa));
+      const inFront=fwd>0&&fwd<1.6*TS&&side<.9*TS;if(fwd>0&&fwd<5*TS&&side<1.2*TS&&!P.crouch)piousHint(A,'move','讓開！蹲到路邊！');
+      if(inFront&&!P.crouch){A.violated=true;G.flash={type:'lords',at:0};SND.scare('lords');P.lured=A.pseudo;P.luredT=0;P.mash=0;A.pseudo.led=P;log('你擋在七爺八爺前面。一條冰冷的鐵鍊套上了你的脖子。','death')}}
+    apLured(A,dt,'鐵鍊拖著你走進黑暗裡。七爺八爺把你當成了不乾淨的東西。',h=>`${h.name}被鐵鍊拘走了。`);
+    if((A.dir>0&&A.pos-A.dir*40>A.end)||(A.dir<0&&A.pos-A.dir*40<A.end)){if(!A.violated)log('鑼聲遠了。七爺八爺巡過去了。','clutch');apRelease(A);endApparition()}return}
+  if(A.type==='wall'){A.x=A.ox;A.y=A.oy;if(P.spot||!P.moving)A.still+=dt;else A.still=0;
+    if(alive(P)&&!P.spot&&!P.lured&&!P.drown&&Math.hypot(P.x-A.ox,P.y-A.oy)>A.r){const dx=P.x-A.ox,dy=P.y-A.oy;A.loops++;
+      for(const h of G.humans)if(!h.isPlayer&&alive(h)&&h.state==='follow'&&dist(h,P)<4*TS){h.x=A.ox-(P.x-h.x)*.3;h.y=A.oy-(P.y-h.y)*.3;h.path=null}
+      P.x=A.ox-dx*.15;P.y=A.oy-dy*.15;G.shake=.2;SND.cue('whisper',P.x,P.y);bubble(P,A.loops<2?'……又回到這裡了？':'怎麼又是這裡……','info',1.6);
+      const m=G.monsters.filter(m=>!m.hidden&&m.type!=='suigui'&&['patrol','search','investigate'].includes(m.state)).sort((a,b)=>dist(a,P)-dist(b,P))[0];if(m){setState(m,'investigate',10);m.goal={x:A.ox,y:A.oy}}
+      if(A.loops===1)log('你沿著路走，抬頭一看，又回到了剛才的地方。','omen');else if(A.loops===3)piousHint(A,'loop','別再走了！站著別動！')}
+    if(A.still>=4){log(A.loops?'你停下腳步，閉上眼睛數到四。再睜開眼，路出來了。':'你站定不動。周圍的霧慢慢散開了。','clutch');endApparition();return}
+    if(A.t>A.dur){log('不知道繞了多久，路總算出來了。','clutch');endApparition()}return}
+  if(A.type==='baby'){A.cryT-=dt;if(A.cryT<=0){A.cryT=2.2;SND.cue('cry',A.x,A.y);bubble({x:A.x,y:A.y},'（嬰兒的哭聲）','info',1.6)}
+    if(alive(P)&&!A.violated&&dist(A,P)<2.2*TS){punish(A,'你撥開草叢。裡面沒有嬰兒，只有一隻冰冷的小手抓住了你的腳。');A.x=-999;setTimeout(()=>{if(G.apparition===A)endApparition()},800);return}
+    if(dist(A,P)<4.5*TS)piousHint(A,'near','別過去！那不是嬰兒！');
+    for(const h of G.humans){if(h.isPlayer||!alive(h)||h.spot||h.lured)continue;if(!h.babyChecked&&dist(h,A)<9*TS&&(h.quirk==='kind'||h.child||h.quirk==='timid')){h.babyChecked=true;if(rnd()<.45){h.babyGo=true;bubble(h,'有小孩在哭……我去看看。','voice',2);log(`${h.name}聽到嬰兒在哭，往草叢走了過去。`,'regret')}}
+      if(h.babyGo){navTo(h,A.x,A.y,50,dt,humanPass);h.moving=true;if(dist(h,A)<1.2*TS){h.babyGo=false;takeAway(h,A,`${h.name}蹲下去抱那個嬰兒，就再也沒有站起來。`)}}}
+    if(A.t>A.dur){if(!A.violated)log('哭聲停了。你沒有過去。','clutch');for(const h of G.humans)h.babyGo=false;endApparition()}return}
+  if(A.type==='zhizha'){A.x=P.x;A.y=P.y;
+    for(const d of A.dolls){if(d.burn>0){d.burn+=dt;continue}
+      if(G.fires.some(f=>Math.hypot(f.x-d.x,f.y-d.y)<(f.r||20)+10)){d.burn=.01;log('紙紮人碰到火，一下子就燒了起來。','clutch');continue}
+      d.lit=lit(d);d.moving=!d.lit&&!P.spot&&alive(P);d.face=Math.atan2(P.y-d.y,P.x-d.x);
+      if(d.moving){navTo(d,P.x,P.y,62,dt,humanPass);if(A.t%1.1<dt)SND.cue('buzz',d.x,d.y)}
+      if(!A.violated&&alive(P)&&!P.spot&&dist(d,P)<16){punish(A,'冰冷的紙手搭上你的肩膀。紙紮人咧開畫上去的嘴，笑了。');for(const o of A.dolls)if(!o.burn)o.burn=.01}}
+    if(A.t>2.5&&A.dolls.some(d=>!d.burn&&d.moving&&dist(d,P)<3*TS))piousHint(A,'near','燈照著它們！別讓它們出光！');
+    if(A.t>A.dur&&A.dolls.every(d=>d.burn>0||true)){for(const d of A.dolls)if(!d.burn)d.burn=.01;if(!A.endT){A.endT=A.t;if(!A.violated)log('紙紮人一個接一個燒了起來，化成灰飄走了。','clutch')}}
+    if(A.endT&&A.t-A.endT>1.6||A.dolls.length&&A.dolls.every(d=>d.burn>1.6))endApparition();
+    if(!A.dolls.length)endApparition();return}
+}
 function endApparition(){for(const h of G.humans){h.frozen=false;h.fidgetAt=0}G.apparition=null;G.appEnd=G.t}
 
 /* ---------------- night pacing, events, dogs, false scares ---------------- */
@@ -634,7 +766,7 @@ function updNight(dt){
         if(spot){noise(spot.x,spot.y,10*TS,'cry',spot);SND.cue('cry',spot.x,spot.y);bubble(spot,'（嬰兒的哭聲）','info',3)}}}}
   for(const a of G.apps)if(!a.done&&G.t>=a.t&&!G.apparition&&alive(G.player)&&!G.player.spot&&G.danger<.3&&!(G.t-(G.appEnd??-1e9)<PACE.appGap)&&!G.monsters.some(m=>!m.hidden&&m.type!=='suigui'&&dist(m,G.player)<11*TS)){ // a rule needs its own moment: it waits until no monster is close
     a.done=true;if(!G.final)startApparition(a.type)} // the last minute belongs to the chase
-  updApparition(dt);if(G.flash)G.flash.at+=dt;
+  updSiege(dt);updApparition(dt);if(G.flash)G.flash.at+=dt;
   // a quiet beat right before something arrives
   for(const s of G.schedule)if(!s.done&&G.t>=s.omen-2.5&&G.t<s.t)G.silence=Math.max(G.silence,s.t);
   // never leave the player alone for long: the nearest idle monster drifts toward them
@@ -680,7 +812,8 @@ function endGame(kind){
   if(kind==='dawn'){const a=surv.filter(h=>alive(h));G.dawnSaved=a.length;log(`雞啼了。怪談散去${a.length?'，'+a.map(h=>h.name).join('、')+'撐到了天亮':''}。`,'save')}
   const pAlive=kind==='escape'||kind==='dawn';
   const dead=surv.filter(h=>h.dead).length,gone=surv.filter(h=>h.gone).length,left=kind==='dawn'?0:surv.filter(h=>alive(h)&&!h.saved).length;
-  const score=G.saved*100+G.dawnSaved*60+(pAlive?80:0)+(kind==='escape'?Math.max(0,Math.floor((G.night-G.t)/4)):0);
+  G.leftEarly=kind==='escape'&&left>0&&G.phase<2; // drove off before 寅時 with people still out there (K26)
+  const score=G.saved*100+G.dawnSaved*60+(pAlive?80:0)+(kind==='escape'&&!left?Math.max(0,Math.floor((G.night-G.t)/4)):0); // leaving early only pays when nobody is left behind
   const isBest=score>bestScore;if(isBest){bestScore=score;try{localStorage.setItem('kaidan-best',score)}catch(e){}}
   G.result={kind,pAlive,dead,gone,left,score,isBest,total:surv.length};
   if(pAlive)SND.bell();else SND.scare(G.scare&&G.scare.type);

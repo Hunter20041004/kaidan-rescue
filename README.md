@@ -19,6 +19,7 @@ Made for Taiwanese players who grew up with these stories (Grandaunt Tiger, Mosi
 - **Five folklore monsters** (Mosinna, Grandaunt Tiger, the slit-mouthed woman, jiangshi, water ghost), each with its own rule for staying alive, plus three "rule spirits" such as the girl in red and a midnight funeral procession.
 - **Rescue under pressure**: find villagers by their cries, have them follow or wait, and get everyone to the truck before dawn.
 - **Folk items and hiding spots**: firecrackers, maltose candy, incense, kerosene and talismans; hide in wardrobes, haystacks, trees or wells.
+- **Night Road mode (夜路)**: walk the same village road to the wake three nights running. Each night the farmer's almanac changes what counts as normal (on a day marked "avoid weddings", a wedding at midnight is not a living one), and you must spot what is wrong and answer it the folk way: chant, freeze, step aside, or never look back.
 - **Seven Nights mode**: each night is longer and harder; villagers you saved bring gifts, and the ones you lost may call your name from behind.
 - **Runs anywhere**: one HTML file with touch controls for phones and keyboard controls for desktop.
 
@@ -35,8 +36,8 @@ Made for Taiwanese players who grew up with these stories (Grandaunt Tiger, Mosi
 
 ## Results
 
-- Playable prototype with a tutorial, single-night mode and the seven-night campaign.
-- 61 automated rule tests passing in a real browser (for example: Grandaunt Tiger finds people hiding in a wardrobe; answering "ordinary" lets you escape the slit-mouthed woman).
+- Playable prototype with a tutorial, single-night mode, the seven-night campaign and the three-night Night Road.
+- 82 automated rule tests for the rescue modes and 130 for Night Road, all passing in a real browser (for example: Grandaunt Tiger finds people hiding in a wardrobe; answering "ordinary" lets you escape the slit-mouthed woman).
 
 ## Run it locally
 
@@ -46,8 +47,8 @@ Development notes (Chinese): [`docs/DEVELOPMENT.md`](docs/DEVELOPMENT.md) · Art
 
 ## Notes
 
-Sound effects are CC0 recordings from BigSoundBank; see [`audio/CREDITS.md`](audio/CREDITS.md). Fonts load from Google Fonts.
+Sound effects are CC0 recordings from BigSoundBank; see [`audio/CREDITS.md`](audio/CREDITS.md). UI fonts load from Google Fonts; in-world text uses the pixel font Cubic 11 (俐方體11號, SIL Open Font License, [`fonts/OFL.txt`](fonts/OFL.txt)), embedded at build time.
 
 ## 中文摘要
 
-以台灣民俗怪談為題材的網頁恐怖遊戲。停電的山腳村裡，玩家要在雞啼前把村民帶到村口的貨車；魔神仔、虎姑婆、裂口女、殭屍、水鬼各有一條活命規矩，還有紅衣小女孩、夜半送葬等規矩怪。可以躲衣櫃、草垛、樹上和井裡，用鞭炮、麥芽糖、線香等民俗道具脫身。整個遊戲是一個網頁檔，畫面全由程式即時畫出，手機和電腦都能玩；61 條規矩測試全部通過。
+以台灣民俗怪談為題材的網頁恐怖遊戲。停電的山腳村裡，玩家要在雞啼前把村民帶到村口的貨車；魔神仔、虎姑婆、裂口女、殭屍、水鬼各有一條活命規矩，還有紅衣小女孩、夜半送葬等規矩怪。可以躲衣櫃、草垛、樹上和井裡，用鞭炮、麥芽糖、線香等民俗道具脫身。整個遊戲是一個網頁檔，畫面全由程式即時畫出，手機和電腦都能玩。新模式「夜路」：連續三晚走同一條路去靈堂，農民曆的宜忌每晚改寫什麼叫正常，玩家要看出路上的不對勁，用念佛、站住、讓路、不回頭應對。救人模式 82 條、夜路 130 條自動化測試全部通過。

@@ -1,8 +1,9 @@
 // runs inside the page; returns [{name,ok,detail}]
 (()=>{const R=[];const T=(name,fn)=>{try{const d=fn();R.push({name,ok:!!(d===true||(d&&d.ok)),detail:d&&d.detail!==undefined?d.detail:d})}catch(e){R.push({name,ok:false,detail:String(e.stack||e)})}};
 KT.manual=true;const TS=24;
-const fresh=(seed)=>{KT.startGame(seed||777);const G=KT.G;G.schedule=[];G.monsters=[];G.events=[];G.apps=[];G.apparition=null;G.dogs=[];G.scareT=1e9;G.reserve=[];return G};
+const fresh=(seed)=>{KT.startGame(seed||777);const G=KT.G;G.schedule=[];G.monsters=[];G.events=[];G.apps=[];G.apparition=null;G.dogs=[];G.scareT=1e9;G.siegeAt=1e9;G.reserve=[];return G};
 const surv=G=>G.humans.filter(h=>!h.isPlayer);
+const alive0=h=>!h.dead&&!h.gone&&!h.lured&&!h.drown;
 const put=(e,tx,ty)=>{e.x=(tx+.5)*TS;e.y=(ty+.5)*TS};
 const run=(sec)=>KT.step(Math.round(sec*60));
 T('虎姑婆打開有人的衣櫃，躲在裡面的人會被抓',()=>{const G=fresh();const P=G.player;const c=G.spots.find(s=>s.type==='cabinet'&&!s.occ.length);KT.hideIn(c);put(P,c.tx,c.ty);P.x=c.x;P.y=c.y;
@@ -12,6 +13,47 @@ T('裂口女問話時回答「普通」就能脫身',()=>{const G=fresh();const 
 T('裂口女：不回答就會被追上',()=>{const G=fresh();const P=G.player;put(P,41,30);G.inv.candy=0;KT.spawnMonster('kuchi',{x:P.x+4*TS,y:P.y});KT.UI.closeMeet();run(6);return{ok:P.dead===true,detail:`dead=${P.dead}`}});
 T('蹲在草叢裡，裂口女看不見',()=>{const G=fresh();const P=G.player;put(P,6,40);P.crouch=true;const m=KT.spawnMonster('kuchi',{x:P.x+3*TS,y:P.y});KT.UI.closeMeet();
   return{ok:!KT.canSee(m,P),detail:`tile=${G.map[40][6]}`}});
+T('跑步有體力：一直跑會停下來喘，喘的時候不能憋氣',()=>{const G=fresh();const P=G.player;put(P,41,30);const k=KT.keys;k.ShiftLeft=true;k.KeyD=true;let t=0;while(P.tired<=0&&t<400){put(P,41,30);run(.05);t++} /* keep it on open ground so it never stops at a wall */const tRun=t*.05;
+  const ranOut=P.tired>0&&!P.run;k.Space=true;run(.1);const held=P.holding;k.Space=false;k.ShiftLeft=false;k.KeyD=false;run(8);
+  return{ok:ranOut&&tRun>2.5&&tRun<4.5&&!held&&P.stam>P.maxStam*.5,detail:`ran ${tRun.toFixed(2)}s tired=${ranOut} held=${held} stam=${P.stam.toFixed(2)}`}});
+T('被看見之後用走的甩不掉：怪追得比走路快',()=>{const G=fresh();const P=G.player;put(P,41,30);const m=KT.spawnMonster('tiger',{x:P.x-4*TS,y:P.y});KT.UI.closeMeet();KT.setState(m,'chase');m.target=P;
+  const k=KT.keys;k.KeyD=true;const d0=Math.hypot(m.x-P.x,m.y-P.y);run(2);const d1=Math.hypot(m.x-P.x,m.y-P.y);k.KeyD=false;return{ok:d1<d0||P.dead,detail:`gap ${d0.toFixed(0)} → ${d1.toFixed(0)} dead=${P.dead}`}});
+T('村民被困：怪守在旁邊、倒數，時間到人就沒了',()=>{const G=fresh();const P=G.player;const c=G.spots.find(s=>s.type==='cabinet'&&!s.occ.length);KT.hideIn(c);P.x=c.x;P.y=c.y; /* hidden, so it never turns on you */const m=KT.spawnMonster('tiger',{x:71.5*TS,y:30.5*TS}); /* open road, away from the hidden player */KT.UI.closeMeet();
+  G.humans.filter(h=>!h.isPlayer).forEach(h=>{h.reveal=0});G.siegeAt=G.t;run(.1);const S=G.siege;if(!S)return{ok:false,detail:'no siege'};const h=S.h,started=m.state==='siege'&&h.besieged&&S.t>30;
+  run(S.t+8);return{ok:started&&(h.dead||h.lured||h.gone)&&!G.siege,detail:`started=${started} h=${h.name} st=${m.state} dead=${h.dead} lured=${!!h.lured} d=${(Math.hypot(m.x-h.x,m.y-h.y)/TS).toFixed(1)} spot=${h.spot?h.spot.type:'-'} tile=${G.map[Math.floor(h.y/TS)][Math.floor(h.x/TS)]} m=${Math.floor(m.x/TS)},${Math.floor(m.y/TS)} h=${Math.floor(h.x/TS)},${Math.floor(h.y/TS)} over=${(S.over||0).toFixed(1)}`}});
+T('村民被困：在遠處放鞭炮把守著的怪引開，村民 6 秒後還活著',()=>{const G=fresh();const P=G.player;const c=G.spots.find(s=>s.type==='cabinet'&&!s.occ.length);KT.hideIn(c);P.x=c.x;P.y=c.y;
+  const m=KT.spawnMonster('tiger',{x:41.5*TS+30*TS,y:30.5*TS});KT.UI.closeMeet();G.siegeAt=G.t;run(.1);const S=G.siege;if(!S)return{ok:false,detail:'no siege'};const h=S.h;let t=0;while(!S.arrived&&t<400){run(.1);t++}run(1);
+  const a=Math.atan2(m.y-h.y,m.x-h.x);KT.bang(m.x+Math.cos(a)*6*TS,m.y+Math.sin(a)*6*TS);run(.2);const lifted=!G.siege&&!h.besieged&&m.state!=='siege';run(6);
+  return{ok:lifted&&alive0(h),detail:`arrived=${S.arrived} lifted=${lifted} st=${m.state} dead=${h.dead}`}});
+T('村民被困：進入最後一分鐘，守著的怪不會轉身就抓人',()=>{const G=fresh();const P=G.player;const c=G.spots.find(s=>s.type==='cabinet'&&!s.occ.length);KT.hideIn(c);P.x=c.x;P.y=c.y;
+  const m=KT.spawnMonster('tiger',{x:41.5*TS+30*TS,y:30.5*TS});KT.UI.closeMeet();G.siegeAt=G.t;run(.1);const S=G.siege;if(!S)return{ok:false,detail:'no siege'};const h=S.h;let t=0;while(!S.arrived&&t<400){run(.1);t++}
+  G.t=G.night-59;run(6);return{ok:!G.siege&&alive0(h),detail:`siege=${!!G.siege} dead=${h.dead}`}});
+T('村民被困：怪抓不到的人不會被選（裂口女打不開衣櫃）',()=>{const G=fresh();const P=G.player;put(P,41,30);const sv=surv(G);const h=sv[0];sv.slice(1).forEach(x=>{x.saved=true});
+  const c=G.spots.find(s=>s.type==='cabinet'&&!s.occ.length&&Math.hypot(s.x-P.x,s.y-P.y)>10*TS);h.x=c.x;h.y=c.y;c.occ.push(h);h.spot=c;h.state='hide';
+  KT.spawnMonster('kuchi',{x:P.x+30*TS,y:P.y});KT.UI.closeMeet();G.siegeAt=G.t;run(3);return{ok:!G.siege&&alive0(h),detail:`siege=${!!G.siege}`}});
+T('躲在衣櫃裡也會回氣',()=>{const G=fresh();const P=G.player;P.stam=0;P.tired=2.2;const c=G.spots.find(s=>s.type==='cabinet'&&!s.occ.length);KT.hideIn(c);run(8);return{ok:P.stam>=P.maxStam-.01&&P.tired===0,detail:`stam=${P.stam.toFixed(2)} tired=${P.tired}`}});
+T('追擊中的怪聽得到你跑：一路衝刺甩不掉',()=>{const G=fresh();const P=G.player;put(P,41,30);const m=KT.spawnMonster('tiger',{x:P.x-4*TS,y:P.y});KT.UI.closeMeet();KT.setState(m,'chase');m.target=P;
+  const k=KT.keys;k.ShiftLeft=true;k.KeyD=true;for(let i=0;i<40;i++){const ox=P.x;run(.1);const dx=P.x-ox;m.x-=dx;P.x=ox}k.ShiftLeft=false;k.KeyD=false;
+  return{ok:['chase','stalk'].includes(m.state)||P.dead,detail:`st=${m.state} gap=${(Math.hypot(m.x-P.x,m.y-P.y)/TS).toFixed(1)}`}});
+const appG=(t)=>{const G=fresh(901);KT.UI.closeMeet();run(.5);KT.startApparition(t);run(.2);return G};
+T('冥婚紅包：按互動撿起來就壞了規矩',()=>{const G=appG('hongbao');const A=G.apparition,P=G.player;P.x=A.x;P.y=A.y+4;const it=KT.interactTarget();const lab=it&&it.label;it&&it.fn();return{ok:lab==='撿起紅包'&&A.violated,detail:`label=${lab} violated=${A.violated}`}});
+T('冥婚紅包：不撿、走遠了就沒事',()=>{const G=appG('hongbao');const A=G.apparition,P=G.player;P.x=A.x+TS*1.5;P.y=A.y;run(.2);P.x=A.x+TS*6;run(.5);return{ok:!G.apparition&&!A.violated,detail:`on=${!!G.apparition}`}});
+T('竹篙鬼：從竹子底下穿過去會被吊起來',()=>{const G=appG('bamboo');const A=G.apparition,P=G.player;const nx=A.uy,ny=-A.ux;P.x=A.x+nx*20;P.y=A.y+ny*20;run(.5);P.x=A.x-nx*20;P.y=A.y-ny*20;run(.1);return{ok:A.violated&&P.lured===A.pseudo,detail:`violated=${A.violated}`}});
+T('竹篙鬼：從竹子尾端外面繞過去沒事',()=>{const G=appG('bamboo');const A=G.apparition,P=G.player;const nx=A.uy,ny=-A.ux,ex=A.ux*(A.half+TS),ey=A.uy*(A.half+TS);P.x=A.x+ex+nx*20;P.y=A.y+ey+ny*20;run(.5);P.x=A.x+ex-nx*20;P.y=A.y+ey-ny*20;run(.2);return{ok:!A.violated,detail:`violated=${A.violated}`}});
+T('七爺八爺：站在前面擋路會被鎖鏈拘走，蹲在路邊就沒事',()=>{let G=appG('lords');let A=G.apparition,P=G.player;const fa=A.road.axis==='x'?(A.dir>0?0:Math.PI):(A.dir>0?Math.PI/2:-Math.PI/2);run(.1);const h=KT.apPos(A,0);P.x=h.x+Math.cos(fa)*TS;P.y=h.y+Math.sin(fa)*TS;P.crouch=false;run(.1);const bad=A.violated&&P.lured===A.pseudo;
+  G=appG('lords');A=G.apparition;P=G.player;run(.1);const h2=KT.apPos(A,0);P.x=h2.x+Math.cos(fa)*TS;P.y=h2.y+Math.sin(fa)*TS;P.crouch=true;run(.5);return{ok:bad&&!A.violated,detail:`stood=${bad} crouched-violated=${A.violated}`}});
+T('七爺八爺：靠近的怪談會逃開',()=>{const G=appG('lords');const A=G.apparition;run(.1);const m=KT.spawnMonster('tiger',{x:A.x+2*TS,y:A.y});KT.UI.closeMeet();run(.2);return{ok:m.state==='flee',detail:m.state}});
+T('鬼打牆：走遠會回到原地，站著不動四秒就散',()=>{const G=appG('wall');const A=G.apparition,P=G.player;P.x=A.ox+5*TS;run(.1);const back=Math.hypot(P.x-A.ox,P.y-A.oy)<2*TS&&A.loops===1;run(4.3);return{ok:back&&!G.apparition,detail:`back=${back} loops=${A.loops} on=${!!G.apparition}`}});
+T('草叢嬰啼：走到哭聲旁邊就壞了規矩',()=>{const G=appG('baby');const A=G.apparition,P=G.player;P.x=A.x+TS;P.y=A.y;run(.1);return{ok:A.violated,detail:`violated=${A.violated}`}});
+T('紙紮人：燈照著不動，背對就靠過來',()=>{const G=appG('zhizha');const A=G.apparition,P=G.player;const d=A.dolls[0];P.face=Math.atan2(d.y-P.y,d.x-P.x);const d0=Math.hypot(d.x-P.x,d.y-P.y);run(1);const d1=Math.hypot(d.x-P.x,d.y-P.y);
+  P.face+=Math.PI;run(1);const d2=Math.hypot(d.x-P.x,d.y-P.y);return{ok:Math.abs(d1-d0)<2&&d2<d1-20,detail:`lit ${d0.toFixed(0)}→${d1.toFixed(0)} unlit→${d2.toFixed(0)}`}});
+T('紙紮人：躲進衣櫃，它們碰不到你',()=>{const G=appG('zhizha');const A=G.apparition,P=G.player;const c=G.spots.find(s=>s.type==='cabinet'&&!s.occ.length);P.x=c.x;P.y=c.y;KT.hideIn(c);run(18);return{ok:!A.violated,detail:`violated=${A.violated} on=${!!G.apparition}`}});
+T('路邊的機車、攤子、電線桿擋得住人，不能穿過去',()=>{const G=fresh();KT.UI.closeMeet();const D=decorPlan();const so=D.solids.find(s=>s.hw>=7);if(!so)return{ok:false,detail:'no solid'};const P=G.player;P.x=so.x-so.hw-20;P.y=so.y-1;const k=KT.keys;k.KeyD=true;run(1.5);k.KeyD=false;return{ok:P.x<so.x-so.hw,detail:`x=${P.x.toFixed(0)} edge=${so.x-so.hw}`}});
+T('站著轉手電筒時，鏡頭不跟著滑鼠晃',()=>{const G=fresh();KT.UI.closeMeet();const P=G.player;put(P,41,30);KT.mouse.active=true;KT.mouse.x=P.x-200;KT.mouse.y=P.y;run(.5);updCam(true);const c1=CAM.x;KT.mouse.x=P.x+200;run(.5);updCam(true);const c2=CAM.x;KT.mouse.active=false;return{ok:Math.abs(c2-c1)<1,detail:`camera moved ${(c2-c1).toFixed(1)} px`}});
+T('七夜分批出現：頭一夜只有殭屍、魔神仔和紅衣小女孩，每夜新的那個一定會出現',()=>{const bad=[];for(let seed=1;seed<=12;seed++){for(let n=0;n<4;n++){KT.startGame(seed*31+n,'village',{cfg:KT.NIGHTS[n]});const G=KT.G,cfg=KT.NIGHTS[n],mons=G.schedule.map(s=>s.type).concat(G.reserve||[]),apps=G.apps.map(a=>a.type);
+    if(cfg.mons&&mons.some(m=>!cfg.mons.includes(m)))bad.push(`n${n} mon ${mons}`);if(cfg.appPool&&apps.some(a=>!cfg.appPool.includes(a)))bad.push(`n${n} app ${apps}`);
+    const sched=G.schedule.map(s=>s.type);for(const f of cfg.fresh||[]){if(MONSTERS[f]&&!sched.includes(f))bad.push(`n${n} fresh mon ${f} missing`);if(APPARITIONS[f]&&!apps.includes(f))bad.push(`n${n} fresh app ${f} missing (${apps})`)}}}
+  return{ok:!bad.length,detail:bad.slice(0,4).join(' | ')||'ok'}});
 T('魔神仔看得到草叢裡的人',()=>{const G=fresh();const P=G.player;put(P,6,40);P.crouch=true;const m=KT.spawnMonster('mosin',{x:P.x+3*TS,y:P.y});KT.UI.closeMeet();return KT.canSee(m,P)});
 T('鞭炮：嚇跑魔神仔、引來虎姑婆，寫下荒謬紀錄',()=>{const G=fresh();const P=G.player;put(P,41,30);const a=KT.spawnMonster('mosin',{x:P.x+3*TS,y:P.y});const b=KT.spawnMonster('tiger',{x:P.x-6*TS,y:P.y});KT.UI.closeMeet();
   KT.bang(P.x+TS,P.y);return{ok:a.state==='flee'&&b.state==='investigate'&&G.log.some(l=>l.tag==='absurd'),detail:`${a.state}/${b.state}`}});
@@ -117,7 +159,7 @@ T('紅衣小女孩看著你時，14 格內的怪談也定住（位置、狀態�
   KT.startApparition('girl');const a0=[a.x,a.y],b0=[b.x,b.y];const sb=[];for(let i=0;i<150;i++){run(1/60);if(i%30===0)sb.push(b.state)}const da=Math.hypot(a.x-a0[0],a.y-a0[1]),db=Math.hypot(b.x-b0[0],b.y-b0[1]);
   return{ok:da<.5&&a.state==='investigate'&&a.timer===20&&(b.state!=='investigate'||b.timer<19)&&!!G.apparition&&!G.apparition.violated,detail:`near moved ${da.toFixed(1)}px st=${a.state} timer=${a.timer}; far timer=${b.timer.toFixed(1)} moved ${db.toFixed(1)}px (${sb}) log=${G.log.some(l=>/停住了/.test(l.text))}`}});
 T('夜半送葬經過時，3 格內的怪談會讓路（逃開），寫下荒謬紀錄',()=>{const G=fresh(1616);const P=G.player;put(P,41,40);P.crouch=true;P.face=Math.PI/2;KT.mouse.active=false;
-  KT.startApparition('funeral');const A=G.apparition;A.road={axis:'x',c:32,a:2,b:81};A.dir=1;A.pos=30*TS;A.end=81*TS;const m=KT.spawnMonster('tiger',{x:33*TS,y:33*TS});KT.UI.closeMeet();KT.setState(m,'patrol');
+  KT.startApparition('funeral');const A=G.apparition;A.road={axis:'x',c:32,a:2,b:81};A.dir=1;A.pos=30*TS;A.end=81*TS;const m=KT.spawnMonster('tiger',{x:33*TS,y:33*TS});KT.UI.closeMeet();KT.setState(m,'search',10); /* standing by the road, so the test does not hang on where a random patrol wanders */
   const far=KT.spawnMonster('kuchi',{x:60*TS,y:45*TS});KT.UI.closeMeet();KT.setState(far,'patrol');let st=null;for(let i=0;i<60*3&&st!=='flee';i++){run(1/60);st=m.state}
   return{ok:st==='flee'&&far.state!=='flee'&&G.log.some(l=>l.tag==='absurd'&&/送葬/.test(l.text)),detail:`near=${st} far=${far.state} log=${G.log.slice(-1)[0].text}`}});
 T('守規矩的村民在規則怪談出現時提醒你；用種子分配，不是每夜都有',()=>{let nights=0,has=0;for(let s=1;s<=20;s++){KT.startGame(s*101);nights++;if(KT.G.humans.some(h=>h.quirk==='pious'))has++}
